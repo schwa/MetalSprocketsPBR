@@ -19,7 +19,7 @@ struct TestModels {
         let normals = [SIMD3<Float>](repeating: [0, 0, 1], count: 4)
         try geometry.add(attributes: [
             .init(semantic: .position, format: .float3, values: positions),
-            .init(semantic: .normal, format: .float3, values: normals),
+            .init(semantic: .normal, format: .float3, values: normals)
         ], indices: [0, 1, 2, 0, 2, 3])
         quad = try geometry.build()[0]
     }

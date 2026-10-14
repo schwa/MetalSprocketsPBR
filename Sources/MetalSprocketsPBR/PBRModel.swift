@@ -162,7 +162,7 @@ public final class PBRModel: @unchecked Sendable {
             (.tangent, .float4, MemoryLayout<PBRVertex>.offset(of: \.tangent)),
             (.texcoord(0), .float2, MemoryLayout<PBRVertex>.offset(of: \.texCoord0)),
             (.texcoord(1), .float2, MemoryLayout<PBRVertex>.offset(of: \.texCoord1)),
-            (.color(0), .float4, MemoryLayout<PBRVertex>.offset(of: \.color)),
+            (.color(0), .float4, MemoryLayout<PBRVertex>.offset(of: \.color))
         ]
         return VertexDescriptor(
             attributes: fields.map { .init(semantic: $0.0, format: $0.1, offset: $0.2!, bufferIndex: 0) },
@@ -175,7 +175,7 @@ public final class PBRModel: @unchecked Sendable {
         var descriptor = meshVertexDescriptor
         descriptor.attributes += [
             .init(semantic: .jointIndices(0), format: .float4, offset: MemoryLayout<PBRSkinVertex>.offset(of: \.joints)!, bufferIndex: skinBufferIndex),
-            .init(semantic: .jointWeights(0), format: .float4, offset: MemoryLayout<PBRSkinVertex>.offset(of: \.weights)!, bufferIndex: skinBufferIndex),
+            .init(semantic: .jointWeights(0), format: .float4, offset: MemoryLayout<PBRSkinVertex>.offset(of: \.weights)!, bufferIndex: skinBufferIndex)
         ]
         descriptor.layouts[skinBufferIndex] = .init(bufferIndex: skinBufferIndex, stride: MemoryLayout<PBRSkinVertex>.stride, stepFunction: .perVertex, stepRate: 1)
         return descriptor

@@ -9,7 +9,7 @@ public extension PBRMaterialUniforms {
             \.baseColor, \.metallicRoughness, \.normal, \.occlusion, \.emissive, \.transmission, \.thickness, \.specular,
             \.specularColor, \.iridescence, \.iridescenceThickness, \.anisotropy, \.sheenColor, \.sheenRoughness,
             \.clearcoat, \.clearcoatRoughness, \.clearcoatNormal, \.diffuseTransmission, \.diffuseTransmissionColor,
-            \.retroreflection,
+            \.retroreflection
         ]
     }
 

@@ -7,24 +7,24 @@ let package = Package(
     platforms: [
         .macOS(.v26),
         .iOS(.v26),
-        .visionOS(.v26),
+        .visionOS(.v26)
     ],
     products: [
         .library(name: "MetalSprocketsPBR", targets: ["MetalSprocketsPBR"]),
-        .library(name: "MetalSprocketsPBRShaders", targets: ["MetalSprocketsPBRShaders"]),
+        .library(name: "MetalSprocketsPBRShaders", targets: ["MetalSprocketsPBRShaders"])
     ],
     dependencies: [
         .package(url: "https://github.com/schwa/MetalSprockets", from: "0.2.2"),
         .package(url: "https://github.com/schwa/MetalCompilerPlugin", from: "0.3.0"),
         .package(url: "https://github.com/schwa/MetalSupport", branch: "main"),
         .package(url: "https://github.com/schwa/SwiftMesh", branch: "main"),
-        .package(url: "https://github.com/schwa/GeometryLite3D", from: "0.1.0"),
+        .package(url: "https://github.com/schwa/GeometryLite3D", from: "0.1.0")
     ],
     targets: [
         .target(
             name: "MetalSprocketsPBRShaders",
             dependencies: [
-                .product(name: "MetalSprocketsShaders", package: "MetalSprockets"),
+                .product(name: "MetalSprocketsShaders", package: "MetalSprockets")
             ],
             exclude: ["Metal"],
             plugins: [
@@ -39,7 +39,7 @@ let package = Package(
                 .product(name: "MetalSprocketsUI", package: "MetalSprockets"),
                 .product(name: "MetalSupport", package: "MetalSupport"),
                 .product(name: "SwiftMesh", package: "SwiftMesh"),
-                .product(name: "GeometryLite3D", package: "GeometryLite3D"),
+                .product(name: "GeometryLite3D", package: "GeometryLite3D")
             ]
         ),
         .testTarget(
@@ -47,8 +47,8 @@ let package = Package(
             dependencies: [
                 "MetalSprocketsPBR",
                 "MetalSprocketsPBRShaders",
-                .product(name: "SwiftMesh", package: "SwiftMesh"),
+                .product(name: "SwiftMesh", package: "SwiftMesh")
             ]
-        ),
+        )
     ]
 )

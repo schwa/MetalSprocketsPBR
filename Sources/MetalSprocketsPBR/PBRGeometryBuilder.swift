@@ -93,13 +93,13 @@ public struct PBRGeometryBuilder {
         for attribute in attributes where attribute.count != vertexCount {
             throw PBRGeometryError.attributeCountMismatch(attribute.semantic)
         }
-        func read<T>(_ attribute: MetalMesh.VertexAttributeData, as type: T.Type) -> [T] {
+        func read<T>(_ attribute: MetalMesh.VertexAttributeData, as _: T.Type) -> [T] {
             let size = attribute.format.size
             return attribute.bytes.withUnsafeBytes { bytes in
                 (0 ..< attribute.count).map { bytes.loadUnaligned(fromByteOffset: $0 * size, as: T.self) }
             }
         }
-        func floats<T>(_ semantic: VertexDescriptor.Attribute.Semantic, _ format: MTLVertexFormat, as type: T.Type) throws -> [T]? {
+        func floats<T>(_ semantic: VertexDescriptor.Attribute.Semantic, _ format: MTLVertexFormat, as _: T.Type) throws -> [T]? {
             guard let attribute = attribute(semantic) else { return nil }
             guard attribute.format == format else {
                 throw PBRGeometryError.unsupportedAttributeFormat(semantic, attribute.format)
@@ -111,8 +111,10 @@ public struct PBRGeometryBuilder {
             switch attribute.format {
             case .float4:
                 return read(attribute, as: SIMD4<Float>.self)
+
             case .float3:
                 return read(attribute, as: Packed3<Float>.self).map { SIMD4($0.x, $0.y, $0.z, w) }
+
             default:
                 throw PBRGeometryError.unsupportedAttributeFormat(semantic, attribute.format)
             }
@@ -141,8 +143,10 @@ public struct PBRGeometryBuilder {
             switch joints.format {
             case .ushort4:
                 jointValues = read(joints, as: SIMD4<UInt16>.self).map { SIMD4<Float>($0) }
+
             case .float4:
                 jointValues = read(joints, as: SIMD4<Float>.self)
+
             default:
                 throw PBRGeometryError.unsupportedAttributeFormat(joints.semantic, joints.format)
             }

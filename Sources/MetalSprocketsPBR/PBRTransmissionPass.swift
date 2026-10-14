@@ -40,7 +40,7 @@ public final class PBRTransmissionTarget: @unchecked Sendable {
     public var width: Int { color.width }
     public var height: Int { color.height }
 
-    public convenience init(device: MTLDevice? = nil, size: Int = 1024) throws {
+    public convenience init(device: MTLDevice? = nil, size: Int = 1_024) throws {
         try self.init(device: device, width: size, height: size)
     }
 

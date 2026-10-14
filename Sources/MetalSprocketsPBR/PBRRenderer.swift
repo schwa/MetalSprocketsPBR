@@ -494,11 +494,11 @@ struct PBRShaders {
         samplerDescriptor.tAddressMode = .clampToEdge
         guard let sampler = device.makeSamplerState(descriptor: samplerDescriptor),
               let placeholderTexture = device.makeTexture(descriptor: {
-                  let descriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .rgba16Float, width: 1, height: 1, mipmapped: false)
-                  // An array, like PBRTransmissionTarget's textures.
-                  descriptor.textureType = .type2DArray
-                  descriptor.usage = .shaderRead
-                  return descriptor
+                let descriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .rgba16Float, width: 1, height: 1, mipmapped: false)
+                // An array, like PBRTransmissionTarget's textures.
+                descriptor.textureType = .type2DArray
+                descriptor.usage = .shaderRead
+                return descriptor
               }())
         else {
             throw PBREnvironmentError.resourceCreationFailed("renderer resources")

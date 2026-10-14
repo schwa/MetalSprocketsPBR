@@ -53,11 +53,14 @@ public final class PBREnvironment: @unchecked Sendable {
         let sourceTexture: MTLTexture
         switch source {
         case .studio:
-            sourceTexture = try builder.generateEquirect(width: 2048, height: 1024, kernel: "equirect_studio", color: nil)
+            sourceTexture = try builder.generateEquirect(width: 2_048, height: 1_024, kernel: "equirect_studio", color: nil)
+
         case .uniform(let color):
             sourceTexture = try builder.generateEquirect(width: 64, height: 32, kernel: "equirect_uniform", color: SIMD4(color, 1))
+
         case .equirectangular(let url):
             sourceTexture = try builder.loadEquirect(url)
+
         case let .equirectangularPixels(width, height, rgba):
             precondition(rgba.count == width * height * 4, "One RGBA value per pixel")
             sourceTexture = try builder.uploadEquirect(rgba, width: width, height: height)
@@ -71,7 +74,7 @@ public final class PBREnvironment: @unchecked Sendable {
     public convenience init(cube: MTLTexture, colorMatrix: simd_float3x3 = matrix_identity_float3x3, scale: Float = 1, device: MTLDevice? = nil, specularSize: Int = 128, irradianceSize: Int = 32) throws {
         let device = device ?? cube.device
         let builder = try Builder(device: device)
-        let width = min(cube.width * 4, 1024)
+        let width = min(cube.width * 4, 1_024)
         let sourceTexture = try builder.equirectFromCube(cube, width: width, height: width / 2, colorMatrix: colorMatrix, scale: scale)
         try self.init(builder: builder, source: sourceTexture, specularSize: specularSize, irradianceSize: irradianceSize)
     }
@@ -80,7 +83,7 @@ public final class PBREnvironment: @unchecked Sendable {
     public static let displayP3ToLinearSRGB = simd_float3x3(rows: [
         [1.2249, -0.2247, 0],
         [-0.0420, 1.0419, 0],
-        [-0.0197, -0.0786, 1.0979],
+        [-0.0197, -0.0786, 1.0979]
     ])
 
     private init(builder: Builder, source: MTLTexture, specularSize: Int, irradianceSize: Int) throws {
@@ -289,7 +292,7 @@ private struct Builder {
         let cube = try makeCube(size: size, mipmapped: false, label: "PBR Environment Irradiance")
         let pipeline = try pipeline("convolve_irradiance")
         try run { encoder in
-            var parameters = PBRPrefilterParameters(roughness: 1, sampleCount: 1024)
+            var parameters = PBRPrefilterParameters(roughness: 1, sampleCount: 1_024)
             encoder.setTexture(source, index: 0)
             encoder.setTexture(cube, index: 1)
             encoder.setBytes(&parameters, length: MemoryLayout<PBRPrefilterParameters>.stride, index: 0)
