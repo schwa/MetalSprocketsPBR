@@ -15,7 +15,7 @@ struct ShaderParameterNameTests {
         let swift = try sources(in: "Sources/MetalSprocketsPBR", extension: "swift")
         let metal = try sources(in: "Sources/MetalSprocketsPBRShaders", extension: "metal")
         let names = Set(swift.matches(of: /\.parameter\("(\w+)"/).map { String($0.output.1) })
-                        #expect(names.count > 10, "Expected to find the renderer's parameters")
+        #expect(names.count > 10, "Expected to find the renderer's parameters")
         let missing = names.filter { name in
             metal.firstMatch(of: try! Regex("\\b\(name)\\s*\\[\\[")) == nil // swiftlint:disable:this force_try
         }
