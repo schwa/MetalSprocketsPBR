@@ -145,3 +145,22 @@ README Usage step 1 calls geometry.add(.init(vertices: vertices, indices: indice
 - `2026-10-14T16:22:25Z`: README example now uses add(attributes:indices:); ReadmeExampleTests runs the same code.
 
 ---
+
+## 8: Add golden image tests and use one as the README screenshot
+
++++
+status: new
+priority: low
+kind: enhancement
+created: 2026-10-14T19:07:32Z
++++
+
+PBR has no pixel tests, and the README has no image.
+
+Add golden image tests with the GoldenImage package (github.com/schwa/GoldenImage), like MetalSprocketsGLTF's GoldenImageTests:
+- Render scenes built in code (for example the README example, plus a grid of spheres with different metallic and roughness values) through OffscreenRenderer.
+- Store the goldens in Tests/MetalSprocketsPBRTests/GoldenImages.
+- Gate the suite with .requiresMetal4 so GitHub CI skips it; Buildkite runs it on real hardware.
+- Use one golden (a larger render) as the README screenshot.
+
+---
