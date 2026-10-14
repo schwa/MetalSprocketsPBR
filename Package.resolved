@@ -1,5 +1,5 @@
 {
-  "originHash" : "39f1f60c806fa47e1306cc5ac84446651deefbfc8cd3204512529b8faab65511",
+  "originHash" : "fbd8e6863873ea253831e4dd3065081ea20053505b9fd0b54b7468cabfb24f65",
   "pins" : [
     {
       "identity" : "geometrylite2d",
@@ -42,8 +42,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/schwa/MetalSupport",
       "state" : {
-        "branch" : "main",
-        "revision" : "667d86e694e2f9d599c757152bbdf0d46cab63fe"
+        "revision" : "667d86e694e2f9d599c757152bbdf0d46cab63fe",
+        "version" : "1.0.7"
       }
     },
     {
@@ -78,8 +78,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/schwa/SwiftMesh",
       "state" : {
-        "branch" : "main",
-        "revision" : "e02b6dba449be104b1c98050e1e780242df269e3"
+        "revision" : "93ae4066f79097344376445ad5b033a3b0bf8a38",
+        "version" : "0.0.6"
       }
     }
   ],

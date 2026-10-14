@@ -15,10 +15,10 @@ let package = Package(
     ],
     dependencies: [
         .package(url: "https://github.com/schwa/MetalSprockets", from: "0.2.2"),
-        .package(url: "https://github.com/schwa/MetalCompilerPlugin", from: "0.3.0"),
-        .package(url: "https://github.com/schwa/MetalSupport", branch: "main"),
-        .package(url: "https://github.com/schwa/SwiftMesh", branch: "main"),
-        .package(url: "https://github.com/schwa/GeometryLite3D", from: "0.1.0")
+        .package(url: "https://github.com/schwa/MetalCompilerPlugin", from: "0.4.1"),
+        .package(url: "https://github.com/schwa/MetalSupport", from: "1.0.7"),
+        .package(url: "https://github.com/schwa/SwiftMesh", from: "0.0.6"),
+        .package(url: "https://github.com/schwa/GeometryLite3D", from: "0.1.1")
     ],
     targets: [
         .target(
