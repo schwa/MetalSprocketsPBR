@@ -3,6 +3,7 @@ import MetalSprocketsPBR
 import Testing
 
 // Keep in sync with README.md's Usage section.
+@Suite(.requiresMetal4)
 struct ReadmeExampleTests {
     @Test func buildsAModelInCode() throws {
         let device = MTLCreateSystemDefaultDevice()!

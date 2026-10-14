@@ -55,6 +55,7 @@ extension simd_float4x4 {
     }
 }
 
+@Suite(.requiresMetal4)
 struct DrawPlanTests {
     let models: TestModels
     let projection = simd_float4x4.perspective(fovY: .pi / 4, aspectRatio: 1, near: 0.1, far: 100)
@@ -171,6 +172,7 @@ struct DrawPlanTests {
     }
 }
 
+@Suite(.requiresMetal4)
 struct ModelBuilderOrderTests {
     // Batch order must not depend on where materials happen to be allocated.
     @Test func opaqueBatchesFollowFirstUseOfMaterials() throws {
@@ -192,6 +194,7 @@ struct ModelBuilderOrderTests {
     }
 }
 
+@Suite(.requiresMetal4)
 struct SceneOrderingTests {
     let models: TestModels
 

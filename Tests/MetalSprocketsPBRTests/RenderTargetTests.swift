@@ -14,7 +14,7 @@ struct RenderTargetTests {
         #expect(resized.width == 1 && resized.height == 48)
     }
 
-    @Test func upscaleCacheScalesInputAndKeepsOutputSize() throws {
+    @Test(.requiresMetal4) func upscaleCacheScalesInputAndKeepsOutputSize() throws {
         let cache = PBRUpscaleTargetCache()
         let upscaling = PBRUpscaling(scale: 0.5)
         let targets = try cache.targets(for: upscaling, outputSize: CGSize(width: 100, height: 60))
