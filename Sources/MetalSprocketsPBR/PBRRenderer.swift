@@ -312,11 +312,8 @@ public struct PBRRenderer: Element {
             // Every instance hidden: no draws, and the batch's own buffer is bound (an empty array cannot be).
             posedNodes = nodes.isEmpty ? nil : unmirrored + mirroredNodes
             ranges = [(0, unmirrored.count, modelIsMirrored), (unmirrored.count, mirroredNodes.count, !modelIsMirrored)].filter { $0.count > 0 } // swiftlint:disable:this empty_count (a tuple's count field)
-        } else if let pose, let node = batch.nodeIndices.first, !pose.isVisible(node) {
-            // A hidden skinned mesh.
-            posedNodes = nil
-            ranges = []
         } else {
+            // Hidden skinned meshes never get here: their bounds are empty, so the draw plan culls them.
             posedNodes = nil
             ranges = [(0, batch.instanceCount, batch.isMirrored != modelIsMirrored)]
         }

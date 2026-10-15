@@ -49,7 +49,7 @@ public final class PBREnvironment: @unchecked Sendable {
 
     public convenience init(source: Source, device: MTLDevice? = nil, specularSize: Int = 256, irradianceSize: Int = 32) throws {
         let device = device ?? _MTLCreateSystemDefaultDevice()
-        let builder = try Builder(device: device)
+        let builder = try PBREnvironmentBuilder(device: device)
         let sourceTexture: MTLTexture
         switch source {
         case .studio:
@@ -73,7 +73,7 @@ public final class PBREnvironment: @unchecked Sendable {
     /// `scale` multiplies its brightness. The cube is resampled to an equirectangular source at most 1024 wide.
     public convenience init(cube: MTLTexture, colorMatrix: simd_float3x3 = matrix_identity_float3x3, scale: Float = 1, device: MTLDevice? = nil, specularSize: Int = 128, irradianceSize: Int = 32) throws {
         let device = device ?? cube.device
-        let builder = try Builder(device: device)
+        let builder = try PBREnvironmentBuilder(device: device)
         let width = min(cube.width * 4, 1_024)
         let sourceTexture = try builder.equirectFromCube(cube, width: width, height: width / 2, colorMatrix: colorMatrix, scale: scale)
         try self.init(builder: builder, source: sourceTexture, specularSize: specularSize, irradianceSize: irradianceSize)
@@ -86,7 +86,7 @@ public final class PBREnvironment: @unchecked Sendable {
         [-0.0197, -0.0786, 1.0979]
     ])
 
-    private init(builder: Builder, source: MTLTexture, specularSize: Int, irradianceSize: Int) throws {
+    private init(builder: PBREnvironmentBuilder, source: MTLTexture, specularSize: Int, irradianceSize: Int) throws {
         self.source = source
         specular = try builder.prefilterSpecular(source, size: specularSize)
         irradiance = try builder.convolveIrradiance(source, size: irradianceSize)
@@ -102,7 +102,7 @@ public final class PBREnvironment: @unchecked Sendable {
         private let lock = NSLock()
         private var lookups: [ObjectIdentifier: MTLTexture] = [:]
 
-        func lookup(builder: Builder) throws -> MTLTexture {
+        func lookup(builder: PBREnvironmentBuilder) throws -> MTLTexture {
             let key = ObjectIdentifier(builder.device)
             if let cached = lock.withLock({ lookups[key] }) {
                 return cached
@@ -140,7 +140,7 @@ public final class PBREnvironment: @unchecked Sendable {
 }
 
 /// One-off GPU work for building an environment.
-private struct Builder {
+struct PBREnvironmentBuilder {
     let device: MTLDevice
     let queue: MTLCommandQueue
     let library: MTLLibrary

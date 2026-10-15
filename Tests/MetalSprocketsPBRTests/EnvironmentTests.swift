@@ -14,6 +14,14 @@ struct EnvironmentTests {
     }
 
     @Test
+    func missingKernelThrows() throws {
+        let builder = try PBREnvironmentBuilder(device: device)
+        #expect(throws: PBREnvironmentError.self) {
+            try builder.pipeline("no_such_kernel")
+        }
+    }
+
+    @Test
     func uniformEnvironment() throws {
         let environment = try PBREnvironment(source: .uniform([0.5, 0, 0]), device: device, specularSize: 16, irradianceSize: 8)
         let (width, height, data) = environment.equirectangularPixels(maxWidth: 8)
