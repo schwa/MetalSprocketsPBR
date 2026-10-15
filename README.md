@@ -2,6 +2,8 @@
 
 A physically based renderer for [MetalSprockets](https://github.com/schwa/MetalSprockets). It does not depend on any file format. [MetalSprocketsGLTF](https://github.com/schwa/MetalSprocketsGLTF) loads glTF files into it.
 
+![Spheres with roughness from 0 to 1 across: dielectric red, metallic gold, metallic silver](Tests/MetalSprocketsPBRTests/GoldenImages/MaterialSpheres.png)
+
 Features: metallic-roughness materials and their extensions (clearcoat, sheen, transmission, volume, iridescence, anisotropy, and more), image-based lighting, punctual lights, skinning, morph targets, instancing, tone mapping, HDR output, and stereo/immersive rendering.
 
 Requires macOS, iOS, or visionOS 26.

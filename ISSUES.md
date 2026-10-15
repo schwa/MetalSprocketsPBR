@@ -149,12 +149,13 @@ README Usage step 1 calls geometry.add(.init(vertices: vertices, indices: indice
 ## 8: Add golden image tests and use one as the README screenshot
 
 +++
-status: open
+status: closed
 priority: low
 kind: enhancement
 labels: effort:m, area:testing
 created: 2026-10-14T19:07:32Z
-updated: 2026-10-15T16:00:53Z
+updated: 2026-10-15T16:18:16Z
+closed: 2026-10-15T16:18:16Z
 +++
 
 PBR has no pixel tests, and the README has no image.
