@@ -161,11 +161,11 @@ public final class PBRMergedGeometry {
 
     /// Whether each record has a visible instance inside any of `frustums`; `modelMatrix` is applied on top of world
     /// placement.
-    public func visibility(frustums: [PBRFrustum], modelMatrix: simd_float4x4, pose: PBRPose?) -> [Bool] {
+    public func visibility(frustums: [Frustum], modelMatrix: simd_float4x4, pose: PBRPose?) -> [Bool] {
         records.map { record in
             let worldBounds = pose?.bounds(of: record.localBounds, nodes: record.nodeIndices, instanceMatrices: record.instanceMatrices) ?? record.worldBounds
             let bounds = worldBounds.transformedKeepingEmpty(by: modelMatrix)
-            return frustums.contains { $0.intersects(bounds) }
+            return frustums.contains { $0.intersectsNonEmpty(bounds) }
         }
     }
 

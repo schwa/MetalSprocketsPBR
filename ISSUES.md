@@ -191,16 +191,19 @@ PBRBounds (Sources/MetalSprocketsPBR/PBRBounds.swift) re-implements BoundingBox3
 ## 10: PBRFrustum duplicates GeometryLite3D's Frustum
 
 +++
-status: open
+status: closed
 priority: medium
 kind: task
 labels: effort:s, area:geometry, refactor
 depends: 9
 created: 2026-10-15T14:35:26Z
-updated: 2026-10-15T16:00:53Z
+updated: 2026-10-15T16:05:24Z
+closed: 2026-10-15T16:05:24Z
 +++
 
 PBRFrustum (Sources/MetalSprocketsPBR/PBRFrustum.swift) uses the same plane extraction and positive-vertex test as GeometryLite3D's Frustum. Differences: PBRFrustum takes PBRBounds, not BoundingBox3D, and reports empty bounds as not visible. Public API.
+
+- `2026-10-15T16:05:24Z`: Removed PBRFrustum; Frustum from GeometryLite3D is used. Internal intersectsNonEmpty(_:) keeps 'empty bounds are never visible'. Breaking for callers of PBRMergedGeometry.visibility(frustums:) (now [Frustum]).
 
 ---
 

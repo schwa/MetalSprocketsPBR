@@ -64,7 +64,7 @@ struct PBRDrawPlan {
         let drawsOpaque = blendedOrder == nil
         let drawsBlended = phase != .opaque
         // Frustum culling: batches whose (posed) bounds are entirely outside the view are not drawn.
-        let frustums = viewProjections.map { PBRFrustum(viewProjection: $0) }
+        let frustums = viewProjections.map { Frustum(viewProjection: $0) }
         func worldBounds(_ batch: PBRModel.Batch) -> BoundingBox3D {
             (pose.map { model.worldBounds(of: batch, pose: $0) } ?? batch.worldBounds).transformedKeepingEmpty(by: modelMatrix)
         }
@@ -80,7 +80,7 @@ struct PBRDrawPlan {
             }
             guard inStage else { return false }
             let bounds = worldBounds(batch)
-            return frustums.contains { $0.intersects(bounds) }
+            return frustums.contains { $0.intersectsNonEmpty(bounds) }
         }
 
         // Static opaque batches draw from merged buffers in one element. A pose gives per-frame instances and material
