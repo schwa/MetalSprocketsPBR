@@ -47,6 +47,7 @@ let package = Package(
             dependencies: [
                 "MetalSprocketsPBR",
                 "MetalSprocketsPBRShaders",
+                .product(name: "MetalSprockets", package: "MetalSprockets"),
                 .product(name: "SwiftMesh", package: "SwiftMesh"),
                 .product(name: "GeometryLite3D", package: "GeometryLite3D")
             ]

@@ -29,7 +29,7 @@ public final class PBRModel: @unchecked Sendable {
         public var primitiveType: MTLPrimitiveType { mesh.submeshes[0].primitiveType }
         public var hasTangents: Bool
         /// False without vertex normals; the shader then derives flat normals per pixel.
-        public var hasNormals: Bool = true
+        public var hasNormals: Bool
         /// Whether the primitive has joints and weights, stored in `geometry.skinBuffer`.
         public var isSkinned: Bool
         /// `PBRMorphDelta` values, [target][vertex], for primitives with morph targets.

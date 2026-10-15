@@ -163,16 +163,14 @@ struct BlendedRun: Identifiable {
     var variant: VertexVariant
     /// Transmissive opaque batches drawn as coverage: premultiplied color. Their batch IDs are opaque batch IDs, so
     /// they never share a run with blended batches.
-    var premultiplied = false
+    var premultiplied: Bool
     var batches: [PBRModel.Batch]
 }
 
 /// Which vertex shader a batch needs: skinned or instanced, with or without morph targets.
-struct VertexVariant: Hashable, Identifiable {
+struct VertexVariant: Hashable {
     var skinned: Bool
     var morphed: Bool
-
-    var id: Self { self }
 
     static let all = [false, true].flatMap { skinned in [false, true].map { Self(skinned: skinned, morphed: $0) } }
 
