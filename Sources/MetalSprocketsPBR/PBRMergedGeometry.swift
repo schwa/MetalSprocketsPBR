@@ -1,3 +1,4 @@
+import GeometryLite3D
 import Metal
 import MetalSprocketsPBRShaders
 import simd
@@ -25,8 +26,8 @@ public final class PBRMergedGeometry {
         public var hasTangents: Bool
         public var hasNormals: Bool
         /// Mesh-space bounds of the primitive, and world bounds of all its instances at rest.
-        public var localBounds: PBRBounds
-        public var worldBounds: PBRBounds
+        public var localBounds: BoundingBox3D
+        public var worldBounds: BoundingBox3D
         public var skinIndex: Int?
     }
 
@@ -163,7 +164,7 @@ public final class PBRMergedGeometry {
     public func visibility(frustums: [PBRFrustum], modelMatrix: simd_float4x4, pose: PBRPose?) -> [Bool] {
         records.map { record in
             let worldBounds = pose?.bounds(of: record.localBounds, nodes: record.nodeIndices, instanceMatrices: record.instanceMatrices) ?? record.worldBounds
-            let bounds = worldBounds.transformed(by: modelMatrix)
+            let bounds = worldBounds.transformedKeepingEmpty(by: modelMatrix)
             return frustums.contains { $0.intersects(bounds) }
         }
     }

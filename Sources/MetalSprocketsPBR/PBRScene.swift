@@ -212,7 +212,7 @@ public struct PBRScene: Element {
         for (index, item) in items.enumerated() {
             for batch in item.model.blendedBatches {
                 let bounds = item.pose.map { item.model.worldBounds(of: batch, pose: $0) } ?? batch.worldBounds
-                entries.append((index, batch.id, simd_distance_squared(bounds.transformed(by: item.modelMatrix).center, cameraPosition)))
+                entries.append((index, batch.id, simd_distance_squared(bounds.transformedKeepingEmpty(by: item.modelMatrix).center, cameraPosition)))
             }
         }
         entries.sort { $0.distance > $1.distance }

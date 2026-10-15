@@ -1,3 +1,4 @@
+import GeometryLite3D
 import Metal
 import MetalSprockets
 import MetalSprocketsPBRShaders
@@ -35,9 +36,9 @@ public final class PBRModel: @unchecked Sendable {
         public var morphBuffer: MTLBuffer?
         public var morphTargetCount: Int
         /// Mesh-space bounds of the vertices influenced by each joint (keyed by index into the skin's joints).
-        public var jointBounds: [Int: PBRBounds]
+        public var jointBounds: [Int: BoundingBox3D]
         /// Mesh-space bounds, grown to cover morph targets with weights in 0...1.
-        public var bounds: PBRBounds
+        public var bounds: BoundingBox3D
 
         /// Identifies a primitive across models: its geometry buffers and its ID in them.
         public struct Key: Hashable, Sendable {
@@ -85,7 +86,7 @@ public final class PBRModel: @unchecked Sendable {
         public var worldMatrix: simd_float4x4
         public var normalMatrix: simd_float4x4
         public var isMirrored: Bool
-        public var worldBounds: PBRBounds
+        public var worldBounds: BoundingBox3D
     }
 
     /// Instances drawn with one instanced draw call: same primitive, material and winding.
@@ -103,7 +104,7 @@ public final class PBRModel: @unchecked Sendable {
         public var instanceMatrices: [simd_float4x4]
         /// `instanceCount` packed `PBRInstance` values for the rest pose.
         public var instanceBuffer: MTLBuffer
-        public var worldBounds: PBRBounds
+        public var worldBounds: BoundingBox3D
     }
 
     public let opaqueInstances: [Instance]
@@ -118,7 +119,7 @@ public final class PBRModel: @unchecked Sendable {
     /// Node transforms and morph weights at rest; drawn when no pose is given.
     public let restPose: PBRPose
     /// Of every instance at rest, with skinned instances placed by their joints.
-    public let bounds: PBRBounds
+    public let bounds: BoundingBox3D
     /// Every long-lived GPU allocation the model draws with (geometry, instance data, textures, material argument
     /// buffers), kept resident across frames. Material textures are only reached through argument buffers, so they
     /// must be resident. The renderer attaches it.
@@ -135,7 +136,7 @@ public final class PBRModel: @unchecked Sendable {
         (opaqueBatches + blendedBatches).contains { $0.material.uniforms.transmissionFactor > 0 }
     }
 
-    public init(opaqueInstances: [Instance], blendedInstances: [Instance], opaqueBatches: [Batch], blendedBatches: [Batch], skins: [Skin], lights: [PBRLight], restPose: PBRPose, bounds: PBRBounds, resourceCollection: ResourceCollection, merged: PBRMergedGeometry?, mergedSkinned: PBRMergedGeometry?, mergedTransmissive: PBRMergedGeometry?) {
+    public init(opaqueInstances: [Instance], blendedInstances: [Instance], opaqueBatches: [Batch], blendedBatches: [Batch], skins: [Skin], lights: [PBRLight], restPose: PBRPose, bounds: BoundingBox3D, resourceCollection: ResourceCollection, merged: PBRMergedGeometry?, mergedSkinned: PBRMergedGeometry?, mergedTransmissive: PBRMergedGeometry?) {
         self.opaqueInstances = opaqueInstances
         self.blendedInstances = blendedInstances
         self.opaqueBatches = opaqueBatches
@@ -190,12 +191,12 @@ public final class PBRModel: @unchecked Sendable {
 
 public extension PBRModel {
     /// World bounds of everything drawn with `pose`.
-    func bounds(for pose: PBRPose) -> PBRBounds {
-        (opaqueBatches + blendedBatches).reduce(PBRBounds.empty) { $0.union(worldBounds(of: $1, pose: pose)) }
+    func bounds(for pose: PBRPose) -> BoundingBox3D {
+        (opaqueBatches + blendedBatches).reduce(BoundingBox3D.empty) { $0.union(worldBounds(of: $1, pose: pose)) }
     }
 
     /// World bounds of a batch's instances drawn with `pose`; hidden instances do not count.
-    func worldBounds(of batch: Batch, pose: PBRPose) -> PBRBounds {
+    func worldBounds(of batch: Batch, pose: PBRPose) -> BoundingBox3D {
         if let skinIndex = batch.skinIndex, skins.indices.contains(skinIndex) {
             guard pose.isVisible(batch.nodeIndices.first ?? -1) else { return .empty }
             return Self.skinnedBounds(batch.primitive, skin: skins[skinIndex], pose: pose)
@@ -210,11 +211,11 @@ public extension PBRModel {
 
     /// Union of each joint's influenced vertices moved by that joint. Conservative: a vertex blended between joints
     /// lies between their positions, which the union covers.
-    static func skinnedBounds(_ primitive: Primitive, skin: Skin, pose: PBRPose) -> PBRBounds {
+    static func skinnedBounds(_ primitive: Primitive, skin: Skin, pose: PBRPose) -> BoundingBox3D {
         let jointMatrices = skin.jointMatrices(for: pose)
-        return primitive.jointBounds.reduce(PBRBounds.empty) { result, entry in
+        return primitive.jointBounds.reduce(BoundingBox3D.empty) { result, entry in
             guard jointMatrices.indices.contains(entry.key) else { return result }
-            return result.union(entry.value.transformed(by: jointMatrices[entry.key]))
+            return result.union(entry.value.transformedKeepingEmpty(by: jointMatrices[entry.key]))
         }
     }
 }

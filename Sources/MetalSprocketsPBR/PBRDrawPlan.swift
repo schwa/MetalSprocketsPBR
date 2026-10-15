@@ -1,3 +1,4 @@
+import GeometryLite3D
 import MetalSprocketsPBRShaders
 import simd
 
@@ -64,8 +65,8 @@ struct PBRDrawPlan {
         let drawsBlended = phase != .opaque
         // Frustum culling: batches whose (posed) bounds are entirely outside the view are not drawn.
         let frustums = viewProjections.map { PBRFrustum(viewProjection: $0) }
-        func worldBounds(_ batch: PBRModel.Batch) -> PBRBounds {
-            (pose.map { model.worldBounds(of: batch, pose: $0) } ?? batch.worldBounds).transformed(by: modelMatrix)
+        func worldBounds(_ batch: PBRModel.Batch) -> BoundingBox3D {
+            (pose.map { model.worldBounds(of: batch, pose: $0) } ?? batch.worldBounds).transformedKeepingEmpty(by: modelMatrix)
         }
         func isTransmissive(_ batch: PBRModel.Batch) -> Bool {
             batch.material(overrides: materialOverrides).isTransmissive

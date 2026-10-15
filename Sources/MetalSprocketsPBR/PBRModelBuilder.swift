@@ -1,3 +1,4 @@
+import GeometryLite3D
 import Metal
 import MetalSprockets
 import MetalSprocketsPBRShaders
@@ -28,7 +29,7 @@ public struct PBRModelBuilder {
     /// `skins[skin]` instead.
     public mutating func addInstance(_ primitive: PBRModel.Primitive, material: PBRMaterial, node: Int, instanceMatrix: simd_float4x4 = matrix_identity_float4x4, worldMatrix: simd_float4x4? = nil, skin: Int? = nil) {
         let world = worldMatrix ?? restPose.placement(node: node, instanceMatrix: instanceMatrix)
-        var instance = PBRModel.Instance(id: instances.count, nodeIndex: node, skinIndex: primitive.isSkinned ? skin : nil, primitive: primitive, material: material, worldMatrix: world, normalMatrix: world.inverse.transpose, isMirrored: world.isMirroring, worldBounds: primitive.bounds.transformed(by: world))
+        var instance = PBRModel.Instance(id: instances.count, nodeIndex: node, skinIndex: primitive.isSkinned ? skin : nil, primitive: primitive, material: material, worldMatrix: world, normalMatrix: world.inverse.transpose, isMirrored: world.isMirroring, worldBounds: primitive.bounds.transformedKeepingEmpty(by: world))
         instance.instanceMatrix = instanceMatrix
         instances.append(instance)
     }
@@ -77,7 +78,7 @@ public struct PBRModelBuilder {
             lights: lights,
             restPose: restPose,
             // What is drawn at rest: instances the rest pose hides do not count.
-            bounds: placed.filter { restPose.isVisible($0.nodeIndex) }.reduce(PBRBounds.empty) { $0.union($1.worldBounds) },
+            bounds: placed.filter { restPose.isVisible($0.nodeIndex) }.reduce(BoundingBox3D.empty) { $0.union($1.worldBounds) },
             resourceCollection: resourceCollection,
             merged: merged,
             mergedSkinned: mergedSkinned,

@@ -208,7 +208,7 @@ public struct PBRGeometryBuilder {
     }
 
     /// A view of one primitive in the shared buffers.
-    static func mesh(_ data: PrimitiveData, geometry: PBRGeometryBuffers, baseVertex: Int, indexStart: Int, bounds: PBRBounds) -> MetalMesh {
+    static func mesh(_ data: PrimitiveData, geometry: PBRGeometryBuffers, baseVertex: Int, indexStart: Int, bounds: BoundingBox3D) -> MetalMesh {
         var vertexBuffers: [Int: MTLBuffer] = [0: geometry.vertexBuffer]
         var vertexBufferOffsets = [0: baseVertex * MemoryLayout<PBRVertex>.stride]
         var vertexDescriptor = PBRModel.meshVertexDescriptor
@@ -235,14 +235,14 @@ public struct PBRGeometryBuilder {
 
     /// Mesh-space bounds grown to cover morph targets with weights in 0...1, and the bounds of the vertices each joint
     /// influences.
-    static func bounds(_ data: PrimitiveData) -> (PBRBounds, [Int: PBRBounds]) {
-        var bounds = PBRBounds.empty
+    static func bounds(_ data: PrimitiveData) -> (BoundingBox3D, [Int: BoundingBox3D]) {
+        var bounds = BoundingBox3D.empty
         for vertex in data.vertices {
             bounds.min = simd_min(bounds.min, vertex.position)
             bounds.max = simd_max(bounds.max, vertex.position)
         }
         // Conservative growth from morph targets, assuming weights in 0...1.
-        var morphGrowth = PBRBounds(min: .zero, max: .zero)
+        var morphGrowth = BoundingBox3D(min: .zero, max: .zero)
         for target in data.morphTargets where !target.isEmpty {
             let positions = target.map(\.position)
             morphGrowth.min += simd_min(positions.reduce(SIMD3(repeating: .infinity)) { simd_min($0, $1) }, .zero)
@@ -251,7 +251,7 @@ public struct PBRGeometryBuilder {
         bounds.min += morphGrowth.min
         bounds.max += morphGrowth.max
 
-        var jointBounds: [Int: PBRBounds] = [:]
+        var jointBounds: [Int: BoundingBox3D] = [:]
         if let skinVertices = data.skinVertices {
             for (vertex, skin) in zip(data.vertices, skinVertices) {
                 for component in 0 ..< 4 where skin.weights[component] > 0 {

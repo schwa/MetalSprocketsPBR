@@ -172,17 +172,19 @@ Add golden image tests with the GoldenImage package (github.com/schwa/GoldenImag
 ## 9: PBRBounds duplicates GeometryLite3D's BoundingBox3D
 
 +++
-status: open
+status: closed
 priority: medium
 kind: task
 labels: effort:m, area:geometry, refactor
 created: 2026-10-15T14:35:26Z
-updated: 2026-10-15T16:00:53Z
+updated: 2026-10-15T16:04:23Z
+closed: 2026-10-15T16:04:23Z
 +++
 
 PBRBounds (Sources/MetalSprocketsPBR/PBRBounds.swift) re-implements BoundingBox3D from GeometryLite3D: same min/max, center, union, transformed(by:). PBRBounds adds .empty, isEmpty, and radius, which BoundingBox3D lacks (GeometryLite3D#22). The package now has two bounds types; PBRGeometryBuilder already constructs BoundingBox3D for SwiftMesh. Public API.
 
 - `2026-10-15T16:00:53Z`: Related: #10, #11. Do this first.
+- `2026-10-15T16:04:23Z`: Removed PBRBounds; BoundingBox3D (GeometryLite3D 0.2.2 has empty/isEmpty/radius/union) is used everywhere. Kept an internal transformedKeepingEmpty(by:) because BoundingBox3D.transformed(by:) turns empty bounds into NaN. Breaking change for MetalSprocketsGLTF (GLTFAsset.swift, PBRCompatibility.swift, 2 test files).
 
 ---
 

@@ -1,3 +1,4 @@
+import GeometryLite3D
 import simd
 
 /// The six planes of a view-projection matrix's view volume, for culling bounds that are entirely outside it.
@@ -13,7 +14,7 @@ public struct PBRFrustum: Sendable {
     }
 
     /// False only when `bounds` is entirely outside one plane. Empty bounds are never visible.
-    public func intersects(_ bounds: PBRBounds) -> Bool {
+    public func intersects(_ bounds: BoundingBox3D) -> Bool {
         guard !bounds.isEmpty else {
             return false
         }

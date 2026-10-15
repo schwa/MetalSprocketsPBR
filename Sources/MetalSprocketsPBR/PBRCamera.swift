@@ -1,3 +1,4 @@
+import GeometryLite3D
 import simd
 
 /// View and projection matrices for rendering a ``PBRModel``.
@@ -11,7 +12,7 @@ public struct PBRCamera {
     }
 
     /// Orbits `bounds`, keeping all of it in view at `distanceScale` 1. Angles are in radians.
-    public static func framing(_ bounds: PBRBounds, aspectRatio: Float, yaw: Float = .pi / 6, pitch: Float = -.pi / 8, fovY: Float = .pi / 4, distanceScale: Float = 1) -> Self {
+    public static func framing(_ bounds: BoundingBox3D, aspectRatio: Float, yaw: Float = .pi / 6, pitch: Float = -.pi / 8, fovY: Float = .pi / 4, distanceScale: Float = 1) -> Self {
         let radius = max(bounds.radius, 1e-3)
         let distance = radius / sin(fovY / 2) * (aspectRatio < 1 ? 1 / aspectRatio : 1) * distanceScale
         let direction = SIMD3<Float>(sin(yaw) * cos(pitch), -sin(pitch), cos(yaw) * cos(pitch))
