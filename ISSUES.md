@@ -248,3 +248,56 @@ Measure current coverage (xcb test with code coverage) and add tests until Metal
 - `2026-10-15T16:29:26Z`: Closed at 98.5% line coverage. The remaining lines can't be tested: allocation/creation failures, the studio fatalError, and the shader bundle fallbacks.
 
 ---
+
+## 13: Mark PBRRoomLighting.run() @concurrent
+
++++
+status: open
+priority: medium
+kind: task
+labels: effort:xs, area:concurrency
+created: 2026-10-15T16:54:29Z
+updated: 2026-10-16T02:00:59Z
++++
+
+PBRRoomLighting.run() (Sources/MetalSprocketsPBR/PBRRoomLighting.swift:54) is a plain nonisolated async method. Each anchor update builds a PBREnvironment, which blocks on commandBuffer.waitUntilCompleted() (PBREnvironment.swift:184).
+
+Today it runs on the global executor. If the package adopts NonisolatedNonsendingByDefault, it would inherit the caller actor: `.task { await lighting.run() }` in SwiftUI would block the main actor on GPU work.
+
+Fix: declare it `@concurrent public func run() async`.
+
+---
+
+## 14: Per-light shadow input for the lighting shader
+
++++
+status: open
+priority: medium
+kind: feature
+labels: effort:l, area:shading
+created: 2026-10-15T19:43:47Z
+updated: 2026-10-16T02:00:59Z
++++
+
+PBRLight has no shadow input, so a client cannot shadow one light's contribution without shadowing all of them. MetalSprocketsSceneGraph uses a screen-space mask after the PBR pass, which darkens every light at once: surfaces facing away from a shadowing light, or outside its category, get darker anyway (MSSG #102). Needs a way to pass a depth2d_array shadow map, per-slice view-projections and each light's slice range (start, count), and have the lighting loop scale each light's direct contribution by its own PCF result. MSSG's BlinnPhong.metal (sliceShadow, shadowSliceStart/Count on the light) is a working reference.
+
+---
+
+## 15: Per-material render state (blend, depth, color mask, fill mode)
+
++++
+status: open
+priority: low
+kind: enhancement
+labels: effort:m, area:rendering
+created: 2026-10-16T01:59:14Z
+updated: 2026-10-16T02:00:59Z
++++
+
+PBRRenderer sets its own depth/stencil, blend and fill state. Callers cannot change these per material; only alphaMode and doubleSided are exposed. State set outside PBRRenderer is overridden.
+
+Add PBRMaterial.renderState with blend mode, depth read/write, color write mask and fill mode. PBRRenderer applies it per batch.
+
+Needed by MetalSprocketsSceneGraph #114 (PBRSceneMaterial.renderState).
+
+---
