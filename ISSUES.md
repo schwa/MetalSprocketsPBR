@@ -149,10 +149,12 @@ README Usage step 1 calls geometry.add(.init(vertices: vertices, indices: indice
 ## 8: Add golden image tests and use one as the README screenshot
 
 +++
-status: new
+status: open
 priority: low
 kind: enhancement
+labels: effort:m, area:testing
 created: 2026-10-14T19:07:32Z
+updated: 2026-10-15T16:00:53Z
 +++
 
 PBR has no pixel tests, and the README has no image.
@@ -162,5 +164,75 @@ Add golden image tests with the GoldenImage package (github.com/schwa/GoldenImag
 - Store the goldens in Tests/MetalSprocketsPBRTests/GoldenImages.
 - Gate the suite with .requiresMetal4 so GitHub CI skips it; Buildkite runs it on real hardware.
 - Use one golden (a larger render) as the README screenshot.
+
+- `2026-10-15T16:00:53Z`: Related: #12 (coverage work).
+
+---
+
+## 9: PBRBounds duplicates GeometryLite3D's BoundingBox3D
+
++++
+status: open
+priority: medium
+kind: task
+labels: effort:m, area:geometry, refactor
+created: 2026-10-15T14:35:26Z
+updated: 2026-10-15T16:00:53Z
++++
+
+PBRBounds (Sources/MetalSprocketsPBR/PBRBounds.swift) re-implements BoundingBox3D from GeometryLite3D: same min/max, center, union, transformed(by:). PBRBounds adds .empty, isEmpty, and radius, which BoundingBox3D lacks (GeometryLite3D#22). The package now has two bounds types; PBRGeometryBuilder already constructs BoundingBox3D for SwiftMesh. Public API.
+
+- `2026-10-15T16:00:53Z`: Related: #10, #11. Do this first.
+
+---
+
+## 10: PBRFrustum duplicates GeometryLite3D's Frustum
+
++++
+status: open
+priority: medium
+kind: task
+labels: effort:s, area:geometry, refactor
+depends: 9
+created: 2026-10-15T14:35:26Z
+updated: 2026-10-15T16:00:53Z
++++
+
+PBRFrustum (Sources/MetalSprocketsPBR/PBRFrustum.swift) uses the same plane extraction and positive-vertex test as GeometryLite3D's Frustum. Differences: PBRFrustum takes PBRBounds, not BoundingBox3D, and reports empty bounds as not visible. Public API.
+
+---
+
+## 11: simd_float4x4 perspective/orthographic/lookAt helpers duplicate GeometryLite3D
+
++++
+status: open
+priority: medium
+kind: task
+labels: effort:s, area:geometry, refactor
+created: 2026-10-15T14:35:26Z
+updated: 2026-10-15T16:00:53Z
++++
+
+PBRCamera.swift adds public simd_float4x4.perspective(fovY:aspectRatio:near:far:), .orthographic(halfWidth:halfHeight:near:far:), and .lookAt(eye:target:up:). GeometryLite3D has PerspectiveProjection (.reversed depth mode, same matrix), OrthographicProjection, and LookAt. The public float4x4 extensions can also collide with other packages in clients that import both.
+
+- `2026-10-15T16:00:53Z`: Related: #9, #10. Helpers are now internal, so the client-collision concern no longer applies.
+- `2026-10-15T16:02:57Z`: Checked replacing the helpers with GeometryLite3D's PerspectiveProjection(.reversed)/OrthographicProjection/LookAt. Punting: the extension is still public (not internal; my earlier triage comment was wrong) and MetalSprocketsGLTF depends on it — GLTFCamera.swift uses .perspective/.orthographic and ~20 GLTF test sites use .perspective/.lookAt, so removal is a cross-repo breaking change. Also OrthographicProjection takes halfHeight+aspect, so it cannot express glTF's independent xmag/ymag. Unblocker: OK to remove the public helpers and migrate MetalSprocketsGLTF in lockstep (and add a halfWidth/halfHeight ortho to GeometryLite3D, or keep an internal ortho helper)?
+
+---
+
+## 12: Raise unit test coverage to 100%
+
++++
+status: open
+priority: medium
+kind: task
+labels: effort:l, area:testing
+created: 2026-10-15T16:00:15Z
+updated: 2026-10-15T16:00:53Z
++++
+
+Measure current coverage (xcb test with code coverage) and add tests until MetalSprocketsPBR and MetalSprocketsPBRShaders reach 100% line coverage. Note any code that cannot be tested headlessly (GPU/UI paths) and decide whether to exclude or restructure it.
+
+- `2026-10-15T16:00:53Z`: Related: #8 (golden image tests cover GPU paths).
 
 ---
