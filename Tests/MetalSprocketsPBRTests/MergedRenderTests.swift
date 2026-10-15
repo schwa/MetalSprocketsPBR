@@ -1,4 +1,5 @@
 import CoreGraphics
+import GeometryLite3D
 import Metal
 import MetalSprockets
 @testable import MetalSprocketsPBR
@@ -12,8 +13,8 @@ import Testing
 struct MergedRenderTests {
     let models: TestModels
     let size = CGSize(width: 32, height: 32)
-    let view = simd_float4x4.lookAt(eye: [0, 0, 3], target: .zero, up: [0, 1, 0])
-    let projection = simd_float4x4.perspective(fovY: .pi / 3, aspectRatio: 1, near: 0.1, far: 20)
+    let view = LookAt(position: [0, 0, 3], target: .zero, up: [0, 1, 0]).viewMatrix
+    let projection = PerspectiveProjection(verticalAngleOfView: .radians(.pi / 3), depthMode: .reversed(zClip: 0.1 ... 20)).projectionMatrix(aspectRatio: 1)
 
     init() throws {
         models = try TestModels()
@@ -91,7 +92,7 @@ struct MergedRenderTests {
 
         let viewport = MTLViewport(originX: 0, originY: 0, width: 32, height: 32, znear: 0, zfar: 1)
         let stereo = PBRStereoViews(
-            viewMatrices: [simd_float4x4.lookAt(eye: [-0.1, 0, 3], target: .zero, up: [0, 1, 0]), simd_float4x4.lookAt(eye: [0.1, 0, 3], target: .zero, up: [0, 1, 0])],
+            viewMatrices: [LookAt(position: [-0.1, 0, 3], target: .zero, up: [0, 1, 0]).viewMatrix, LookAt(position: [0.1, 0, 3], target: .zero, up: [0, 1, 0]).viewMatrix],
             projectionMatrices: [projection, projection],
             viewports: [viewport, viewport]
         )

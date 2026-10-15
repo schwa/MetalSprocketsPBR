@@ -48,14 +48,14 @@ struct TestModels {
 @Suite(.requiresMetal4)
 struct DrawPlanTests {
     let models: TestModels
-    let projection = simd_float4x4.perspective(fovY: .pi / 4, aspectRatio: 1, near: 0.1, far: 100)
+    let projection = PerspectiveProjection(verticalAngleOfView: .radians(.pi / 4), depthMode: .reversed(zClip: 0.1 ... 100)).projectionMatrix(aspectRatio: 1)
 
     init() throws {
         models = try TestModels()
     }
 
     func plan(_ model: PBRModel, pose: PBRPose? = nil, stage: PBRRenderer.TransmissionPrePassStage = .none, eye: SIMD3<Float> = [0, 0, 10], target: SIMD3<Float> = .zero, merging: Bool = true, overrides: PBRModel.MaterialOverrides = [:]) -> PBRDrawPlan {
-        let view = simd_float4x4.lookAt(eye: eye, target: target, up: [0, 1, 0])
+        let view = LookAt(position: eye, target: target, up: [0, 1, 0]).viewMatrix
         return PBRDrawPlan(model: model, pose: pose, stage: stage, viewProjections: [projection * view], cameraPosition: eye, modelMatrix: matrix_identity_float4x4, usesMergedGeometry: merging, materialOverrides: overrides)
     }
 

@@ -20,7 +20,7 @@ import simd
 /// .metalClearDepth(0)
 /// ```
 ///
-/// Depth is reversed (near 1, far 0): use `simd_float4x4.perspective` or `PBRCamera` for projections, and clear
+/// Depth is reversed (near 1, far 0): use `PBRCamera` or GeometryLite3D's `PerspectiveProjection` with `.reversed` depth for projections, and clear
 /// depth to 0 (`OffscreenRenderer(size:clearDepth: 0)`, or `metalClearDepth(0)` on a `RenderView`).
 ///
 /// With several models (``items``), blended surfaces of all of them are sorted back to front together, and glass in

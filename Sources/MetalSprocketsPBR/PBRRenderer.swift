@@ -45,7 +45,7 @@ public struct PBRRenderer: Element {
     /// Whether blended surfaces write depth: in stereo (visionOS), where the compositor needs depth for every pixel we
     /// draw.
     var writesBlendedDepth: Bool { stereo != nil }
-    /// Depth is reversed (near 1, far 0; see `simd_float4x4.perspective`), so nearer is greater.
+    /// Depth is reversed (near 1, far 0), so nearer is greater.
     var depthFunction: MTLCompareFunction { .greater }
     /// Draw eligible batches from merged buffers. Tests turn it off to compare against per-batch drawing.
     var usesMergedGeometry = true

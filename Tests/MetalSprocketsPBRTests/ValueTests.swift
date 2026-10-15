@@ -19,15 +19,6 @@ struct ValueTests {
     }
 
     @Test
-    func orthographicMapsNearToOneAndFarToZero() {
-        let matrix = simd_float4x4.orthographic(halfWidth: 2, halfHeight: 1, near: 1, far: 3)
-        let near = matrix * SIMD4<Float>(2, 1, -1, 1)
-        let far = matrix * SIMD4<Float>(0, 0, -3, 1)
-        #expect(near == [1, 1, 1, 1])
-        #expect(far.z == 0)
-    }
-
-    @Test
     func lightingHelpers() {
         let directional = PBRLight.directional(direction: [0, -2, 0], color: [1, 0, 0], intensity: 3)
         #expect(directional.type == .directional)

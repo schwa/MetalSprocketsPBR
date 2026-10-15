@@ -62,7 +62,7 @@ PBRScene(
 )
 ```
 
-Depth is reversed (near 1, far 0). Use `simd_float4x4.perspective` or `PBRCamera` for projections, and clear depth to 0: `.metalClearDepth(0)` on a `RenderView`, or `OffscreenRenderer(size:clearDepth: 0)`.
+Depth is reversed (near 1, far 0). Use `PBRCamera.framing` or GeometryLite3D's `PerspectiveProjection` with `.reversed` depth for projections, and clear depth to 0: `.metalClearDepth(0)` on a `RenderView`, or `OffscreenRenderer(size:clearDepth: 0)`.
 
 To animate the model, pass a different `PBRPose` (node world matrices, morph weights, material overrides, visibility) in `pose:`. To draw many models in one scene, use `PBRScene(items:...)`.
 

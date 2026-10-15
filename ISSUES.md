@@ -211,18 +211,20 @@ PBRFrustum (Sources/MetalSprocketsPBR/PBRFrustum.swift) uses the same plane extr
 ## 11: simd_float4x4 perspective/orthographic/lookAt helpers duplicate GeometryLite3D
 
 +++
-status: open
+status: closed
 priority: medium
 kind: task
 labels: effort:s, area:geometry, refactor
 created: 2026-10-15T14:35:26Z
-updated: 2026-10-15T16:00:53Z
+updated: 2026-10-15T16:20:44Z
+closed: 2026-10-15T16:20:44Z
 +++
 
 PBRCamera.swift adds public simd_float4x4.perspective(fovY:aspectRatio:near:far:), .orthographic(halfWidth:halfHeight:near:far:), and .lookAt(eye:target:up:). GeometryLite3D has PerspectiveProjection (.reversed depth mode, same matrix), OrthographicProjection, and LookAt. The public float4x4 extensions can also collide with other packages in clients that import both.
 
 - `2026-10-15T16:00:53Z`: Related: #9, #10. Helpers are now internal, so the client-collision concern no longer applies.
 - `2026-10-15T16:02:57Z`: Checked replacing the helpers with GeometryLite3D's PerspectiveProjection(.reversed)/OrthographicProjection/LookAt. Punting: the extension is still public (not internal; my earlier triage comment was wrong) and MetalSprocketsGLTF depends on it — GLTFCamera.swift uses .perspective/.orthographic and ~20 GLTF test sites use .perspective/.lookAt, so removal is a cross-repo breaking change. Also OrthographicProjection takes halfHeight+aspect, so it cannot express glTF's independent xmag/ymag. Unblocker: OK to remove the public helpers and migrate MetalSprocketsGLTF in lockstep (and add a halfWidth/halfHeight ortho to GeometryLite3D, or keep an internal ortho helper)?
+- `2026-10-15T16:20:44Z`: Removed the public simd_float4x4 perspective/orthographic/lookAt helpers (no deprecation). PBRCamera.framing and tests use GeometryLite3D's PerspectiveProjection(.reversed) and LookAt. Orthographic is removed with no replacement: GeometryLite3D's OrthographicProjection takes halfHeight + aspect and can't express glTF's independent xmag/ymag, so MetalSprocketsGLTF (GLTFCamera.swift) must build its own reversed-depth orthographic matrix. MetalSprocketsGLTF's tests must also move to PerspectiveProjection/LookAt. MaterialSpheres golden re-recorded (38 pixels changed by <=3 levels from LookAt's float rounding).
 
 ---
 

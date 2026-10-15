@@ -47,8 +47,8 @@ extension TestModels {
 struct RenderTests {
     let models: TestModels
     let size = CGSize(width: 32, height: 32)
-    let view = simd_float4x4.lookAt(eye: [0, 0, 3], target: .zero, up: [0, 1, 0])
-    let projection = simd_float4x4.perspective(fovY: .pi / 3, aspectRatio: 1, near: 0.1, far: 20)
+    let view = LookAt(position: [0, 0, 3], target: .zero, up: [0, 1, 0]).viewMatrix
+    let projection = PerspectiveProjection(verticalAngleOfView: .radians(.pi / 3), depthMode: .reversed(zClip: 0.1 ... 20)).projectionMatrix(aspectRatio: 1)
     let lighting = PBRLighting(lights: [.directional(direction: [0, 0, -1], intensity: 3)])
 
     init() throws {
