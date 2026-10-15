@@ -1,5 +1,5 @@
 {
-  "originHash" : "fbd8e6863873ea253831e4dd3065081ea20053505b9fd0b54b7468cabfb24f65",
+  "originHash" : "af7b64a2789e7b0ea35a7cbfab325787f1730a4512ee1a741f832f4dce276812",
   "pins" : [
     {
       "identity" : "geometrylite2d",
@@ -15,8 +15,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/schwa/GeometryLite3D",
       "state" : {
-        "revision" : "898b2f439607760e3c9f8c239f51664c9bbd3692",
-        "version" : "0.1.1"
+        "revision" : "24bdeff9cd1fb224160022443de7846f9076856e",
+        "version" : "0.2.0"
       }
     },
     {
@@ -78,8 +78,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/schwa/SwiftMesh",
       "state" : {
-        "revision" : "93ae4066f79097344376445ad5b033a3b0bf8a38",
-        "version" : "0.0.6"
+        "revision" : "244d25857792b16f374e8322de2b26d87443e528",
+        "version" : "0.0.7"
       }
     }
   ],

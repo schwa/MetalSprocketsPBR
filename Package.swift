@@ -17,8 +17,8 @@ let package = Package(
         .package(url: "https://github.com/schwa/MetalSprockets", from: "0.2.2"),
         .package(url: "https://github.com/schwa/MetalCompilerPlugin", from: "0.4.1"),
         .package(url: "https://github.com/schwa/MetalSupport", from: "1.0.7"),
-        .package(url: "https://github.com/schwa/SwiftMesh", from: "0.0.6"),
-        .package(url: "https://github.com/schwa/GeometryLite3D", from: "0.1.1")
+        .package(url: "https://github.com/schwa/SwiftMesh", from: "0.0.7"),
+        .package(url: "https://github.com/schwa/GeometryLite3D", from: "0.2.0")
     ],
     targets: [
         .target(
@@ -47,7 +47,8 @@ let package = Package(
             dependencies: [
                 "MetalSprocketsPBR",
                 "MetalSprocketsPBRShaders",
-                .product(name: "SwiftMesh", package: "SwiftMesh")
+                .product(name: "SwiftMesh", package: "SwiftMesh"),
+                .product(name: "GeometryLite3D", package: "GeometryLite3D")
             ]
         )
     ]

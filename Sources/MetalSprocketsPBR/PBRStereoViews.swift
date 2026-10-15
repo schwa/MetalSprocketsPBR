@@ -1,3 +1,4 @@
+import GeometryLite3D
 import Metal
 import MetalSprocketsPBRShaders
 import simd

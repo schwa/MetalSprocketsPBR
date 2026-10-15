@@ -1,4 +1,5 @@
 import CoreGraphics
+import GeometryLite3D
 import Metal
 import MetalFX
 import MetalSprockets

@@ -1,3 +1,4 @@
+import GeometryLite3D
 import Metal
 import MetalSupport
 import simd
@@ -32,10 +33,6 @@ public struct PBRBounds: Equatable, Sendable {
         }
         return result
     }
-}
-
-public extension SIMD4 {
-    var xyz: SIMD3<Scalar> { SIMD3(x, y, z) }
 }
 
 public enum PBRGeometryError: Error {

@@ -217,7 +217,7 @@ public struct PBRGeometryBuilder {
             vertexBufferOffsets[PBRModel.skinBufferIndex] = baseVertex * MemoryLayout<PBRSkinVertex>.stride
             vertexDescriptor = PBRModel.skinnedMeshVertexDescriptor
         }
-        let boundingBox = data.vertices.isEmpty ? nil : BoundingBox(min: bounds.min, max: bounds.max)
+        let boundingBox = data.vertices.isEmpty ? nil : BoundingBox3D(min: bounds.min, max: bounds.max)
         let submesh = MetalMesh.Submesh(
             label: data.label,
             indexBuffer: geometry.indexBuffer,

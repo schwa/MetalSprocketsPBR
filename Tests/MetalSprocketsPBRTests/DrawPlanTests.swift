@@ -1,3 +1,4 @@
+import GeometryLite3D
 import Metal
 @testable import MetalSprocketsPBR
 import MetalSprocketsPBRShaders
@@ -41,17 +42,6 @@ struct TestModels {
             builder.addInstance(quad, material: placement.material, node: node)
         }
         return try builder.build()
-    }
-}
-
-extension simd_float4x4 {
-    init(translation: SIMD3<Float>) {
-        self = matrix_identity_float4x4
-        columns.3 = SIMD4(translation, 1)
-    }
-
-    init(scale: SIMD3<Float>) {
-        self.init(diagonal: SIMD4(scale, 1))
     }
 }
 
