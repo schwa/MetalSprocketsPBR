@@ -15,8 +15,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/schwa/GeometryLite3D",
       "state" : {
-        "revision" : "24bdeff9cd1fb224160022443de7846f9076856e",
-        "version" : "0.2.0"
+        "revision" : "0eddc584482eec5a991c8caff2ec1c864299e377",
+        "version" : "0.2.2"
       }
     },
     {
@@ -78,8 +78,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/schwa/SwiftMesh",
       "state" : {
-        "revision" : "244d25857792b16f374e8322de2b26d87443e528",
-        "version" : "0.0.7"
+        "revision" : "cdb410e46388fb95edf7fbebdd0e988af9163db4",
+        "version" : "0.0.8"
       }
     }
   ],
