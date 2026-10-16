@@ -14,12 +14,18 @@ public struct PBRShadows: @unchecked Sendable {
     public var filterRadius: Int
     /// A comparison sampler; nil uses linear filtering with `lessEqual` (lit when the fragment depth <= the stored depth).
     public var sampler: MTLSamplerState?
+    /// 0 leaves shadowed pixels unchanged, 1 fully shadows.
+    public var intensity: Float
+    /// Linear tint of fully shadowed pixels, like `SCNLight.shadowColor`.
+    public var color: SIMD3<Float>
 
-    public init(map: MTLTexture, sliceViewProjections: [simd_float4x4], filterRadius: Int = 1, sampler: MTLSamplerState? = nil) {
+    public init(map: MTLTexture, sliceViewProjections: [simd_float4x4], filterRadius: Int = 1, sampler: MTLSamplerState? = nil, intensity: Float = 1, color: SIMD3<Float> = .zero) {
         self.map = map
         self.sliceViewProjections = sliceViewProjections
         self.filterRadius = filterRadius
         self.sampler = sampler
+        self.intensity = intensity
+        self.color = color
     }
 
     var uniforms: PBRShadowUniforms {
@@ -33,6 +39,8 @@ public struct PBRShadows: @unchecked Sendable {
         uniforms.mapSize = Float(map.width)
         uniforms.radius = Int32(filterRadius)
         uniforms.enabled = 1
+        uniforms.intensity = intensity
+        uniforms.color = color
         return uniforms
     }
 }

@@ -332,10 +332,12 @@ Needed by MetalSprocketsSceneGraph (transmission pre-pass, follow-up to #123).
 ## 17: Shadow intensity and color for per-light shadows
 
 +++
-status: new
+status: closed
 priority: medium
 kind: enhancement
 created: 2026-10-16T02:39:16Z
+updated: 2026-10-16T12:06:44Z
+closed: 2026-10-16T12:06:44Z
 +++
 
 PBRShadows (#14) scales a shadowed light's direct contribution by the full PCF result. Callers cannot set how strongly shadows darken or what color they tint.

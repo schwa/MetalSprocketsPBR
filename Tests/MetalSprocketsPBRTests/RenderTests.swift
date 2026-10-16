@@ -302,6 +302,16 @@ struct RenderTests {
         let oneShadowed = try center([shadowed, unshadowed], shadows: shadows)
         #expect(Int(both.x) > Int(one.x) + 10, "Without a map, the shadowed light still lights: \(both) vs \(one)")
         #expect(abs(Int(oneShadowed.x) - Int(one.x)) <= 1, "Only the shadowed light is removed: \(oneShadowed) vs \(one)")
+
+        var noIntensity = shadows
+        noIntensity.intensity = 0
+        let unchanged = try center([shadowed, unshadowed], shadows: noIntensity)
+        #expect(abs(Int(unchanged.x) - Int(both.x)) <= 1, "Intensity 0 leaves the light unchanged: \(unchanged) vs \(both)")
+
+        var tinted = shadows
+        tinted.color = [1, 0, 0]
+        let red = try center([shadowed], shadows: tinted)
+        #expect(Int(red.x) > Int(red.y) + 10, "Shadow color tints the shadowed light: \(red)")
     }
 
     @Test

@@ -331,17 +331,18 @@ namespace PBR {
         return lit / (side * side);
     }
 
-    // How much of `light` reaches `world`: the product of its slices' PCF results.
-    float lightShadow(PBRLight light, float3 world, constant PBRShadowUniforms &shadow, depth2d_array<float> shadowMap, sampler shadowSampler) {
+    // How much of `light` reaches `world`: the product of its slices' PCF results, tinted by the shadow color and
+    // scaled by the shadow intensity (same formula as MetalSprocketsSceneGraph's BlinnPhong.metal).
+    float3 lightShadow(PBRLight light, float3 world, constant PBRShadowUniforms &shadow, depth2d_array<float> shadowMap, sampler shadowSampler) {
         if (shadow.enabled == 0 || light.shadowSliceCount <= 0) {
-            return 1.0;
+            return float3(1.0);
         }
         float lit = 1.0;
         const int end = min(light.shadowSliceStart + light.shadowSliceCount, kPBRMaxShadowSliceCount);
         for (int slice = max(light.shadowSliceStart, 0); slice < end; slice++) {
             lit *= sliceShadow(world, shadow.sliceViewProjections[slice], shadow.mapSize, shadow.radius, shadowMap, shadowSampler, uint(slice));
         }
-        return lit;
+        return mix(float3(1.0), shadow.color, shadow.intensity * (1.0 - lit));
     }
 
     float4 shade(
@@ -863,8 +864,8 @@ namespace PBR {
                 }
             }
 
-            attenuation *= lightShadow(light, in.worldPosition, shadow, shadowMap, shadowSampler);
-            const float3 radiance = light.color * light.intensity * attenuation;
+            const float3 shadowing = lightShadow(light, in.worldPosition, shadow, shadowMap, shadowSampler);
+            const float3 radiance = light.color * light.intensity * attenuation * shadowing;
             const float NdotL = clamp(dot(normal, toLight), 0.0, 1.0);
             if (NdotL <= 0.0) {
                 // Light from behind reaches this side only by diffuse transmission. Its Fresnel term uses the light

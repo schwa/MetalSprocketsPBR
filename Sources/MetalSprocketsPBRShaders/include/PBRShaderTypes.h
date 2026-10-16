@@ -213,6 +213,8 @@ struct PBRShadowUniforms {
     float mapSize;
     int radius; // PCF half-size in texels.
     int enabled;
+    float intensity; // 0 leaves shadowed pixels unchanged, 1 fully shadows.
+    simd_float3 color; // Tint of fully shadowed pixels.
 };
 typedef struct PBRShadowUniforms PBRShadowUniforms;
 
