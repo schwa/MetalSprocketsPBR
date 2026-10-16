@@ -227,7 +227,7 @@ public struct PBRScene: Element {
         return runs
     }
 
-    private func transmissionPass(lighting: PBRLighting, target: PBRTransmissionTarget) -> PBRTransmissionPass {
+    private func transmissionPass(lighting: PBRLighting, target: PBRTransmissionTarget) -> PBRTransmissionPass<EmptyElement> {
         PBRTransmissionPass(renderers: items.map { renderer($0, lighting: lighting, target: target) }, target: target, showsBackground: showsBackground)
     }
 }

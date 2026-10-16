@@ -166,7 +166,9 @@ struct RenderTests {
         let behindRenderer = PBRRenderer(model: behind, viewMatrix: view, projectionMatrix: projection, lighting: lighting)
         let glassRenderer = PBRRenderer(model: glass, viewMatrix: view, projectionMatrix: projection, lighting: lighting, transmissionTarget: target)
         let pixels = try render(try Group {
-            PBRTransmissionPass(renderers: [glassRenderer], target: target, additionalContent: AnyElement(behindRenderer))
+            PBRTransmissionPass(renderers: [glassRenderer], target: target) {
+                behindRenderer
+            }
             try RenderPass {
                 glassRenderer
             }

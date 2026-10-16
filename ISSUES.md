@@ -374,10 +374,12 @@ Needed by MetalSprocketsSceneGraph #129.
 ## 19: PBRTransmissionPass.additionalContent should be generic, not AnyElement
 
 +++
-status: new
+status: closed
 priority: low
 kind: enhancement
 created: 2026-10-16T12:20:08Z
+updated: 2026-10-16T12:36:43Z
+closed: 2026-10-16T12:36:43Z
 +++
 
 PBRTransmissionPass.additionalContent is AnyElement?. Type erasure hides the content type from the element system and makes callers wrap their content in AnyElement(...).
