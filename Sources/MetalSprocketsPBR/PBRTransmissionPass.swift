@@ -184,6 +184,9 @@ public struct PBRTransmissionPass<AdditionalContent: Element>: Element {
     }
 }
 
+/// A ``PBRTransmissionPass`` with no additional content. Extend this to add initializers without naming `EmptyElement`.
+public typealias PBRBasicTransmissionPass = PBRTransmissionPass<EmptyElement>
+
 public extension PBRTransmissionPass where AdditionalContent == EmptyElement {
     init(model: PBRModel, viewMatrix: simd_float4x4, projectionMatrix: simd_float4x4, modelMatrix: simd_float4x4 = matrix_identity_float4x4, lighting: PBRLighting? = nil, pose: PBRPose? = nil, target: PBRTransmissionTarget, showsBackground: Bool = false) {
         self.init(model: model, viewMatrix: viewMatrix, projectionMatrix: projectionMatrix, modelMatrix: modelMatrix, lighting: lighting, pose: pose, target: target, showsBackground: showsBackground) { EmptyElement() }
