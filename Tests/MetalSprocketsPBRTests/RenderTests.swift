@@ -194,6 +194,43 @@ struct RenderTests {
         _ = try render(scene(model, pose: pose))
     }
 
+    func material(color: SIMD4<Float>, _ renderState: PBRRenderState) throws -> PBRMaterial {
+        let material = try models.material(color: color)
+        material.renderState = renderState
+        return material
+    }
+
+    @Test
+    func renderStateBlendsAdditively() throws {
+        let blue = try models.material(color: [0, 0, 1, 1])
+        let red = try material(color: [1, 0, 0, 1], PBRRenderState(blendMode: .additive))
+        let pixels = try render(scene(try models.model([([0, 0, -1], blue), (.zero, red)])))
+        #expect(pixels[center].x > 100 && pixels[center].z > 100, "Red added to blue: \(pixels[center])")
+    }
+
+    @Test
+    func renderStateColorWriteMaskHidesChannels() throws {
+        let red = try material(color: [1, 0, 0, 1], PBRRenderState(colorWriteMask: [.green, .blue, .alpha]))
+        let pixels = try render(scene(try models.model([(.zero, red)])))
+        #expect(pixels[center].x == 0, "Red is not written: \(pixels[center])")
+    }
+
+    @Test
+    func renderStateWithoutDepthTestDrawsOverNearerSurfaces() throws {
+        let blue = try models.material(color: [0, 0, 1, 1])
+        let red = try material(color: [1, 0, 0, 1], PBRRenderState(depthTest: false))
+        let pixels = try render(scene(try models.model([([0, 0, 0.5], blue), ([0, 0, -1], red)])))
+        #expect(pixels[center].x > pixels[center].z, "The far red quad draws over the near blue one: \(pixels[center])")
+    }
+
+    @Test
+    func renderStateLinesFillModeDrawsEdgesOnly() throws {
+        let red = try material(color: [1, 0, 0, 1], PBRRenderState(fillMode: .lines))
+        let pixels = try render(scene(try models.model([(.zero, red)])))
+        #expect(pixels[center] == [0, 0, 0, 255], "The inside of the quad is empty: \(pixels[center])")
+        #expect(pixels.contains { $0.x > 100 }, "The edges are drawn")
+    }
+
     @Test
     func linesAndPointsDrawUnlit() throws {
         let primitives = try models.linesAndPoints()

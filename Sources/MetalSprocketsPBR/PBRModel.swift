@@ -50,8 +50,8 @@ public final class PBRModel: @unchecked Sendable {
     }
 
     /// Replacement materials for primitives, keyed by primitive, such as a material variant. An override must keep its
-    /// primitive's pass: the same alpha mode and transmission (``PBRMaterial/canOverride(_:)``). Textures, factors, and
-    /// double-sidedness can change.
+    /// primitive's pass: the same blending, transmission, and default-or-custom render state
+    /// (``PBRMaterial/canOverride(_:)``). Textures, factors, double-sidedness and a custom render state can change.
     public typealias MaterialOverrides = [Primitive.Key: PBRMaterial]
 
     /// The joint nodes of a skin and their inverse bind matrices.

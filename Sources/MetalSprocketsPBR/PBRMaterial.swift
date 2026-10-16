@@ -83,6 +83,8 @@ public final class PBRMaterial {
     public var name: String?
     public var uniforms: PBRMaterialUniforms
     public var doubleSided: Bool
+    /// Set before building the model: it decides which batches merge and which are blended.
+    public var renderState = PBRRenderState()
     /// Every material texture and its sampler, in `PBRMaterialTextureIndex` order. Slots the material does not use
     /// hold a placeholder (see ``placeholderBinding(device:)``).
     public let textureBindings: [Binding]
@@ -97,13 +99,13 @@ public final class PBRMaterial {
         textureBindings[Int(index.rawValue)]
     }
 
-    public var isBlended: Bool { uniforms.alphaMode == .blend }
+    public var isBlended: Bool { renderState.resolvedBlendMode(alphaMode: uniforms.alphaMode) != .opaque }
     public var isTransmissive: Bool { uniforms.transmissionFactor > 0 }
 
     /// Whether `other` can be drawn in place of this material without rebuilding the model: it is drawn in the same
     /// passes (``PBRModel/MaterialOverrides``).
     public func canOverride(_ other: PBRMaterial) -> Bool {
-        isBlended == other.isBlended && isTransmissive == other.isTransmissive
+        isBlended == other.isBlended && isTransmissive == other.isTransmissive && renderState.isDefault == other.renderState.isDefault
     }
 
     /// `textureBindings` must have one binding per `PBRMaterialTextureIndex` (`kPBRMaterialTextureCount`); enable

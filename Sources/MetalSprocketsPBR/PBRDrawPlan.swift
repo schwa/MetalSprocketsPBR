@@ -34,17 +34,23 @@ struct PBRDrawPlan {
         var visible: [Bool]?
     }
 
-    /// Opaque batches drawn individually with one vertex variant's pipeline.
+    /// Opaque batches drawn individually with one vertex variant's and render state's pipeline.
     struct OpaqueGroup: Identifiable {
+        struct GroupID: Hashable {
+            var variant: VertexVariant
+            var state: PBRPipelineState
+        }
+
         var variant: VertexVariant
+        var state: PBRPipelineState
         var batches: [PBRModel.Batch]
-        var id: VertexVariant { variant }
+        var id: GroupID { GroupID(variant: variant, state: state) }
     }
 
     var mergedStatic: MergedDraw?
     var mergedTransmissive: MergedDraw?
     var mergedSkinned: SkinnedMergedDraw?
-    /// Non-empty groups, in ``VertexVariant/all`` order.
+    /// Non-empty groups, in ``VertexVariant/all`` order, then by first use of each render state.
     var opaqueGroups: [OpaqueGroup]
     var blendedRuns: [BlendedRun]
 
@@ -56,7 +62,8 @@ struct PBRDrawPlan {
     ///   - phase: Everything, only opaque batches, or only some blended batches in a given order.
     ///   - transmissionAsCoverage: Draw transmissive opaque batches blended (premultiplied), sorted with the blended
     ///     ones, instead of as opaque (see `PBRFrameUniforms.transmissionAsCoverage`).
-    init(model: PBRModel, pose: PBRPose?, stage: PBRRenderer.TransmissionPrePassStage, viewProjections: [simd_float4x4], cameraPosition: SIMD3<Float>, modelMatrix: simd_float4x4, usesMergedGeometry: Bool, materialOverrides: PBRModel.MaterialOverrides = [:], phase: PBRRenderer.DrawPhase = .all, transmissionAsCoverage: Bool = false) {
+    ///   - writesBlendedDepth: Blended batches write depth whatever their render state says (stereo).
+    init(model: PBRModel, pose: PBRPose?, stage: PBRRenderer.TransmissionPrePassStage, viewProjections: [simd_float4x4], cameraPosition: SIMD3<Float>, modelMatrix: simd_float4x4, usesMergedGeometry: Bool, materialOverrides: PBRModel.MaterialOverrides = [:], phase: PBRRenderer.DrawPhase = .all, transmissionAsCoverage: Bool = false, writesBlendedDepth: Bool = false) {
         var blendedOrder: [Int]?
         if case let .blended(order) = phase {
             blendedOrder = order
@@ -70,6 +77,15 @@ struct PBRDrawPlan {
         }
         func isTransmissive(_ batch: PBRModel.Batch) -> Bool {
             batch.material(overrides: materialOverrides).isTransmissive
+        }
+        func pipelineState(_ batch: PBRModel.Batch, coverage: Bool) -> PBRPipelineState {
+            let material = batch.material(overrides: materialOverrides)
+            var state = PBRPipelineState(material, writesBlendedDepth: writesBlendedDepth)
+            if coverage {
+                state.blendMode = .premultiplied
+                state.depthWrite = writesBlendedDepth || material.renderState.depthWrite.resolved(blended: true)
+            }
+            return state
         }
         func included(_ batch: PBRModel.Batch) -> Bool {
             let material = batch.material(overrides: materialOverrides)
@@ -120,9 +136,17 @@ struct PBRDrawPlan {
 
         let mergedBatchIDs = [mergedStatic?.geometry, mergedTransmissive?.geometry, mergedSkinned?.geometry].reduce(into: Set<Int>()) { $0.formUnion($1?.batchIDs ?? []) }
         let opaque = drawsOpaque ? model.opaqueBatches.filter { included($0) && !mergedBatchIDs.contains($0.id) && !(transmissionAsCoverage && isTransmissive($0)) } : []
-        opaqueGroups = VertexVariant.all.compactMap { variant in
-            let batches = opaque.filter { VertexVariant($0) == variant }
-            return batches.isEmpty ? nil : OpaqueGroup(variant: variant, batches: batches)
+        opaqueGroups = VertexVariant.all.flatMap { variant in
+            var groups: [OpaqueGroup] = []
+            for batch in opaque where VertexVariant(batch) == variant {
+                let state = pipelineState(batch, coverage: false)
+                if let index = groups.firstIndex(where: { $0.state == state }) {
+                    groups[index].batches.append(batch)
+                } else {
+                    groups.append(OpaqueGroup(variant: variant, state: state, batches: [batch]))
+                }
+            }
+            return groups
         }
 
         // Blended primitives keep one back-to-front order. Each vertex variant needs its own pipeline, so the order is
@@ -147,10 +171,11 @@ struct PBRDrawPlan {
         var runs: [BlendedRun] = []
         for (batch, premultiplied) in candidates where included(batch) {
             let variant = VertexVariant(batch)
-            if let last = runs.last, last.variant == variant, last.premultiplied == premultiplied {
+            let state = pipelineState(batch, coverage: premultiplied)
+            if let last = runs.last, last.variant == variant, last.state == state, last.coverage == premultiplied {
                 runs[runs.count - 1].batches.append(batch)
             } else {
-                runs.append(BlendedRun(id: runs.count, variant: variant, premultiplied: premultiplied, batches: [batch]))
+                runs.append(BlendedRun(id: runs.count, variant: variant, state: state, coverage: premultiplied, batches: [batch]))
             }
         }
         blendedRuns = runs
@@ -161,9 +186,11 @@ struct PBRDrawPlan {
 struct BlendedRun: Identifiable {
     var id: Int
     var variant: VertexVariant
-    /// Transmissive opaque batches drawn as coverage: premultiplied color. Their batch IDs are opaque batch IDs, so
-    /// they never share a run with blended batches.
-    var premultiplied: Bool
+    /// Transmissive opaque batches drawn as coverage blend premultiplied color.
+    var state: PBRPipelineState
+    /// Transmissive opaque batches. Their batch IDs are opaque batch IDs, so they never share a run with blended
+    /// batches.
+    var coverage: Bool
     var batches: [PBRModel.Batch]
 }
 

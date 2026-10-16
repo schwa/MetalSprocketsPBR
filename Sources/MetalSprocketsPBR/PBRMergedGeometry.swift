@@ -64,6 +64,7 @@ public final class PBRMergedGeometry {
         (batch.skinIndex != nil) == skinned && (!skinned || batch.primitive.isSkinned)
             && batch.primitive.morphTargetCount == 0 && batch.primitive.primitiveType == .triangle
             && batch.material.isTransmissive == transmissive && !(skinned && transmissive) && !batch.material.isBlended
+            && batch.material.renderState.isDefault
     }
 
     /// Every palette skin's joint matrices for `pose`, in palette order.

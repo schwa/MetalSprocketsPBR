@@ -149,10 +149,10 @@ public struct PBRRenderer: Element {
                 try skinnedMergedPipeline(merged, context: context)
             }
             ForEach(plan.opaqueGroups) { group in
-                try pipeline("PBR Opaque\(group.variant.labelSuffix)", group.batches, variant: group.variant, blended: false, context: context)
+                try pipeline("PBR Opaque\(group.variant.labelSuffix)\(group.state.labelSuffix)", group.batches, variant: group.variant, state: group.state, context: context)
             }
             ForEach(plan.blendedRuns) { run in
-                try pipeline("PBR Blended\(run.variant.labelSuffix)\(run.premultiplied ? " Premultiplied" : "")", run.batches, variant: run.variant, blended: true, premultiplied: run.premultiplied, context: context)
+                try pipeline("PBR Blended\(run.variant.labelSuffix)\(run.state.labelSuffix)", run.batches, variant: run.variant, state: run.state, context: context)
             }
         }
         // Long-lived buffers and textures stay resident across frames, including the material textures that are only
@@ -168,50 +168,39 @@ public struct PBRRenderer: Element {
     }
 
     @ElementBuilder
-    private func pipeline(_ label: String, _ batches: [PBRModel.Batch], variant: VertexVariant, blended: Bool, premultiplied: Bool = false, context: PipelineContext) throws -> some Element {
+    private func pipeline(_ label: String, _ batches: [PBRModel.Batch], variant: VertexVariant, state: PBRPipelineState, context: PipelineContext) throws -> some Element {
         // Morphed and unmorphed draws are different element types; choosing per pipeline, not per draw, keeps the
         // per-draw tree small.
         if variant.morphed {
-            try pipeline(label, batches, variant: variant, blended: blended, premultiplied: premultiplied, context: context) { batch in
+            try pipeline(label, batches, variant: variant, state: state, context: context) { batch in
                 morphedDraw(batch, modelIsMirrored: context.modelIsMirrored, skinPose: context.skinPose)
             }
         } else {
-            try pipeline(label, batches, variant: variant, blended: blended, premultiplied: premultiplied, context: context) { batch in
+            try pipeline(label, batches, variant: variant, state: state, context: context) { batch in
                 draw(batch, modelIsMirrored: context.modelIsMirrored, skinPose: context.skinPose)
             }
         }
     }
 
     @ElementBuilder
-    private func pipeline<Content: Element>(_ label: String, _ batches: [PBRModel.Batch], variant: VertexVariant, blended: Bool, premultiplied: Bool = false, context: PipelineContext, draw: @escaping (PBRModel.Batch) -> Content) throws -> some Element {
-        let content = try RenderPipeline(label: label, vertexShader: context.shaders.vertexShader(variant), fragmentShader: context.shaders.fragment) {
+    private func pipeline<Content: Element>(_ label: String, _ batches: [PBRModel.Batch], variant: VertexVariant, state: PBRPipelineState, context: PipelineContext, draw: @escaping (PBRModel.Batch) -> Content) throws -> some Element {
+        // visionOS shows our color only where depth is written. In stereo, blended surfaces write depth so glass over
+        // passthrough stays visible (see PBRPipelineState). They draw back to front, so nearer ones still pass.
+        try RenderPipeline(label: label, vertexShader: context.shaders.vertexShader(variant), fragmentShader: context.shaders.fragment) {
             context.bindings.apply(to: ForEach(batches) { batch in
                 draw(batch)
             })
         }
         .vertexDescriptor(variant.skinned ? PBRModel.skinnedVertexDescriptor : PBRModel.vertexDescriptor)
-        if blended {
-            content
-                .renderPipelineDescriptorTransformer { descriptor in
-                    let attachment = descriptor.colorAttachments[0]!
-                    attachment.blendingState = .enabled
-                    attachment.sourceRGBBlendFactor = premultiplied ? .one : .sourceAlpha
-                    attachment.destinationRGBBlendFactor = .oneMinusSourceAlpha
-                    attachment.sourceAlphaBlendFactor = .one
-                    attachment.destinationAlphaBlendFactor = .oneMinusSourceAlpha
-                }
-                // visionOS shows our color only where depth is written. In stereo, blended surfaces write depth so
-                // glass over passthrough stays visible. They draw back to front, so nearer ones still pass. Elsewhere
-                // they leave depth alone.
-                .depthCompare(function: depthFunction, enabled: writesBlendedDepth)
-        } else {
-            content.depthCompare(function: depthFunction, enabled: true)
+        .renderPipelineDescriptorTransformer { descriptor in
+            state.apply(to: descriptor)
         }
+        .depthStencilDescriptor(state.depthStencilDescriptor(function: depthFunction))
     }
 
     /// What this renderer draws this frame; see ``PBRDrawPlan``.
     func drawPlan(cameraPosition: SIMD3<Float>) -> PBRDrawPlan {
-        PBRDrawPlan(model: model, pose: pose, stage: prePassStage, viewProjections: viewProjections, cameraPosition: cameraPosition, modelMatrix: modelMatrix, usesMergedGeometry: usesMergedGeometry, materialOverrides: materialOverrides, phase: phase, transmissionAsCoverage: transmissionAsCoverage)
+        PBRDrawPlan(model: model, pose: pose, stage: prePassStage, viewProjections: viewProjections, cameraPosition: cameraPosition, modelMatrix: modelMatrix, usesMergedGeometry: usesMergedGeometry, materialOverrides: materialOverrides, phase: phase, transmissionAsCoverage: transmissionAsCoverage, writesBlendedDepth: writesBlendedDepth)
     }
 
     /// One Metal draw per visible record of `merged`, all in one element.
@@ -219,6 +208,7 @@ public struct PBRRenderer: Element {
         let indexBuffer = merged.indexBuffer
         return Draw { encoder in
             stereo?.configure(encoder)
+            encoder.setTriangleFillMode(.fill)
             for (index, record) in merged.records.enumerated() where visible?[index] ?? true {
                 encoder.setCullMode(backFaces ? .front : doubleSided[index] ? .none : .back)
                 // glTF front faces are counter-clockwise; a mirroring transform flips that.
@@ -330,6 +320,7 @@ public struct PBRRenderer: Element {
             uniforms.unlit = 1
             uniforms.isPointOrLine = 1
         }
+        let fillMode: MTLTriangleFillMode = material.renderState.fillMode == .lines ? .lines : .fill
         let cullMode: MTLCullMode = !isTriangles ? .none : prePassStage == .transmissiveBackFaces ? .front : material.doubleSided ? .none : .back
 
         // A rasterization rate map (visionOS foveation) only allows triangles; point and line primitives are skipped.
@@ -338,6 +329,7 @@ public struct PBRRenderer: Element {
             guard !skipsDraw else { return }
             stereo?.configure(encoder)
             encoder.setCullMode(cullMode)
+            encoder.setTriangleFillMode(fillMode)
             for range in ranges {
                 // glTF front faces are counter-clockwise; a mirroring transform flips that.
                 encoder.setFrontFacing(range.mirrored ? .clockwise : .counterClockwise)
@@ -352,6 +344,8 @@ public struct PBRRenderer: Element {
                     baseInstance: range.start
                 )
             }
+            // Later draws outside the renderer expect the default.
+            encoder.setTriangleFillMode(.fill)
         }
         // The index buffer is only referenced by address; the model's resource collection keeps it resident and the
         // model keeps it alive.

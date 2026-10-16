@@ -288,12 +288,13 @@ PBRLight has no shadow input, so a client cannot shadow one light's contribution
 ## 15: Per-material render state (blend, depth, color mask, fill mode)
 
 +++
-status: open
+status: closed
 priority: low
 kind: enhancement
-labels: effort:m, area:rendering
+labels: area:rendering, effort:l
 created: 2026-10-16T01:59:14Z
-updated: 2026-10-16T02:00:59Z
+updated: 2026-10-16T02:22:46Z
+closed: 2026-10-16T02:22:46Z
 +++
 
 PBRRenderer sets its own depth/stencil, blend and fill state. Callers cannot change these per material; only alphaMode and doubleSided are exposed. State set outside PBRRenderer is overridden.
