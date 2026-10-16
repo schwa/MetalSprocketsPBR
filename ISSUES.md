@@ -302,4 +302,25 @@ Add PBRMaterial.renderState with blend mode, depth read/write, color write mask 
 
 Needed by MetalSprocketsSceneGraph #114 (PBRSceneMaterial.renderState).
 
+- `2026-10-16T02:04:54Z`: Investigated PBRRenderer/PBRDrawPlan/PBRMergedGeometry. Fill mode and depth read/write can be set per draw on the encoder, but blend and color write mask are pipeline state, so per-material values need batches grouped into separate pipelines by render state, and merged geometry must exclude non-default states. Punting: needs design decisions. Questions: (1) Which blend modes (e.g. opaque/alpha/premultiplied/additive/multiply, or raw MTL blend factors)? (2) Does a non-default blend put the batch in the back-to-front sorted blended list, or keep it in place? (3) How should renderState interact with alphaMode (override, or alphaMode picks the default renderState)? (4) Is depth 'read' off = compare .always, and does stereo's forced blended depth write still win on visionOS?
+
+---
+
+## 16: PBRTransmissionPass cannot be built from existing renderers
+
++++
+status: new
+priority: low
+kind: enhancement
+created: 2026-10-16T02:06:06Z
++++
+
+PBRTransmissionPass.init(renderers:target:showsBackground:) is internal. The public init takes a model and builds a new PBRRenderer, so the pass loses settings made on the caller's renderers (materialOverrides, several models in one target).
+
+MetalSprocketsSceneGraph draws one PBRRenderer per batch, each with its own overrides and lights. Its transmission pre-pass therefore uses one combined model and ignores per-entry fades.
+
+Expected: a public init that takes the renderers used for the main pass (e.g. make init(renderers:target:showsBackground:) public).
+
+Needed by MetalSprocketsSceneGraph (transmission pre-pass, follow-up to #123).
+
 ---
