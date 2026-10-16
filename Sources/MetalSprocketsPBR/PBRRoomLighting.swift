@@ -51,6 +51,7 @@ public final class PBRRoomLighting: Sendable {
 
     /// Runs the ARKit session until the task is cancelled, asking for any authorization the provider needs. Returns at
     /// once if another `run()` is still going.
+    @concurrent
     public func run() async {
         let alreadyRunning = state.withLock { state in
             defer { state.isRunning = true }

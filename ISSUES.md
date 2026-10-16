@@ -252,12 +252,13 @@ Measure current coverage (xcb test with code coverage) and add tests until Metal
 ## 13: Mark PBRRoomLighting.run() @concurrent
 
 +++
-status: open
+status: closed
 priority: medium
 kind: task
 labels: effort:xs, area:concurrency
 created: 2026-10-15T16:54:29Z
-updated: 2026-10-16T02:00:59Z
+updated: 2026-10-16T02:01:28Z
+closed: 2026-10-16T02:01:28Z
 +++
 
 PBRRoomLighting.run() (Sources/MetalSprocketsPBR/PBRRoomLighting.swift:54) is a plain nonisolated async method. Each anchor update builds a PBREnvironment, which blocks on commandBuffer.waitUntilCompleted() (PBREnvironment.swift:184).
