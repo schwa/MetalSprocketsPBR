@@ -312,6 +312,38 @@ namespace PBR {
         return clamp(1.0 - pow(distance / range, 4.0), 0.0, 1.0) * inverseSquare;
     }
 
+    // PCF in one slice; 1 is lit. Positions outside the slice's view are lit.
+    float sliceShadow(float3 world, float4x4 viewProjection, float mapSize, int radius, depth2d_array<float> shadowMap, sampler shadowSampler, uint slice) {
+        const float4 clip = viewProjection * float4(world, 1);
+        const float3 ndc = clip.xyz / clip.w;
+        const float2 uv = float2(ndc.x * 0.5 + 0.5, 0.5 - ndc.y * 0.5);
+        if (any(uv < 0.0) || any(uv > 1.0) || ndc.z < 0.0 || ndc.z > 1.0) {
+            return 1.0;
+        }
+        float lit = 0.0;
+        const float texel = 1.0 / mapSize;
+        for (int x = -radius; x <= radius; x++) {
+            for (int y = -radius; y <= radius; y++) {
+                lit += shadowMap.sample_compare(shadowSampler, uv + float2(x, y) * texel, slice, ndc.z, level(0));
+            }
+        }
+        const float side = float(2 * radius + 1);
+        return lit / (side * side);
+    }
+
+    // How much of `light` reaches `world`: the product of its slices' PCF results.
+    float lightShadow(PBRLight light, float3 world, constant PBRShadowUniforms &shadow, depth2d_array<float> shadowMap, sampler shadowSampler) {
+        if (shadow.enabled == 0 || light.shadowSliceCount <= 0) {
+            return 1.0;
+        }
+        float lit = 1.0;
+        const int end = min(light.shadowSliceStart + light.shadowSliceCount, kPBRMaxShadowSliceCount);
+        for (int slice = max(light.shadowSliceStart, 0); slice < end; slice++) {
+            lit *= sliceShadow(world, shadow.sliceViewProjections[slice], shadow.mapSize, shadow.radius, shadowMap, shadowSampler, uint(slice));
+        }
+        return lit;
+    }
+
     float4 shade(
         Fragment in,
         bool frontFacing,
@@ -323,7 +355,10 @@ namespace PBR {
         texturecube<float> environmentSpecular,
         texture2d<float> brdfLookup,
         texture2d_array<float> transmissionScene,
-        sampler environmentSampler
+        sampler environmentSampler,
+        constant PBRShadowUniforms &shadow,
+        depth2d_array<float> shadowMap,
+        sampler shadowSampler
     );
 
     // Data (normals, factors, UVs) is shown as its value on screen: the sRGB target encodes linear output, so decode
@@ -420,13 +455,16 @@ namespace PBR {
         constant PBRFrameUniforms &frame [[buffer(1)]],
         constant PBRLight *lights [[buffer(2)]],
         constant PBRMaterialResources &materialResources [[buffer(3)]],
+        constant PBRShadowUniforms &shadow [[buffer(4)]],
         texturecube<float> environmentIrradiance [[texture(0)]],
         texturecube<float> environmentSpecular [[texture(1)]],
         texture2d<float> brdfLookup [[texture(2)]],
         texture2d_array<float> transmissionScene [[texture(3)]],
-        sampler environmentSampler [[sampler(0)]]
+        depth2d_array<float> shadowMap [[texture(4)]],
+        sampler environmentSampler [[sampler(0)]],
+        sampler shadowSampler [[sampler(1)]]
     ) {
-        return withWireframe(shade(in, frontFacing, material, frame, lights, materialResources, environmentIrradiance, environmentSpecular, brdfLookup, transmissionScene, environmentSampler), barycentric, frame, material);
+        return withWireframe(shade(in, frontFacing, material, frame, lights, materialResources, environmentIrradiance, environmentSpecular, brdfLookup, transmissionScene, environmentSampler, shadow, shadowMap, shadowSampler), barycentric, frame, material);
     }
 
     // Merged static geometry: each draw record has its own material, selected by the record index the vertex stage
@@ -439,14 +477,17 @@ namespace PBR {
         constant PBRFrameUniforms &frame [[buffer(1)]],
         constant PBRLight *lights [[buffer(2)]],
         constant PBRMaterialResources *recordResources [[buffer(3)]],
+        constant PBRShadowUniforms &shadow [[buffer(4)]],
         texturecube<float> environmentIrradiance [[texture(0)]],
         texturecube<float> environmentSpecular [[texture(1)]],
         texture2d<float> brdfLookup [[texture(2)]],
         texture2d_array<float> transmissionScene [[texture(3)]],
-        sampler environmentSampler [[sampler(0)]]
+        depth2d_array<float> shadowMap [[texture(4)]],
+        sampler environmentSampler [[sampler(0)]],
+        sampler shadowSampler [[sampler(1)]]
     ) {
         constant PBRMaterialUniforms &material = recordMaterials[in.record];
-        return withWireframe(shade(in, frontFacing, material, frame, lights, recordResources[in.record], environmentIrradiance, environmentSpecular, brdfLookup, transmissionScene, environmentSampler), barycentric, frame, material);
+        return withWireframe(shade(in, frontFacing, material, frame, lights, recordResources[in.record], environmentIrradiance, environmentSpecular, brdfLookup, transmissionScene, environmentSampler, shadow, shadowMap, shadowSampler), barycentric, frame, material);
     }
 
     float4 shade(
@@ -460,7 +501,10 @@ namespace PBR {
         texturecube<float> environmentSpecular,
         texture2d<float> brdfLookup,
         texture2d_array<float> transmissionScene,
-        sampler environmentSampler
+        sampler environmentSampler,
+        constant PBRShadowUniforms &shadow,
+        depth2d_array<float> shadowMap,
+        sampler shadowSampler
     ) {
         // The material's textures come from one argument buffer, so a draw binds them all at once.
         const texture2d<float> baseColorTexture = materialResources.textures[kPBRTextureBaseColor];
@@ -819,6 +863,7 @@ namespace PBR {
                 }
             }
 
+            attenuation *= lightShadow(light, in.worldPosition, shadow, shadowMap, shadowSampler);
             const float3 radiance = light.color * light.intensity * attenuation;
             const float NdotL = clamp(dot(normal, toLight), 0.0, 1.0);
             if (NdotL <= 0.0) {

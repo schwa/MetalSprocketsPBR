@@ -198,8 +198,23 @@ struct PBRLight {
     float innerConeCos;
     float outerConeCos;
     PBRLightType type;
+    // This light's slices in the shadow map; count 0 casts no shadow. Each slice's PCF result scales only this light.
+    int shadowSliceStart;
+    int shadowSliceCount;
 };
 typedef struct PBRLight PBRLight;
+
+#define kPBRMaxShadowSliceCount 8
+
+// The shadow map shared by every light with shadow slices.
+struct PBRShadowUniforms {
+    // World to light clip space, one per slice. Depth is compared in 0...1 with the shadow sampler's compare function.
+    simd_float4x4 sliceViewProjections[kPBRMaxShadowSliceCount];
+    float mapSize;
+    int radius; // PCF half-size in texels.
+    int enabled;
+};
+typedef struct PBRShadowUniforms PBRShadowUniforms;
 
 /// How linear radiance (after exposure) becomes display values. Mirrored by the Swift PBRToneMapping; 0 is the default.
 typedef MS_ENUM(int, PBRShaderToneMapping) {

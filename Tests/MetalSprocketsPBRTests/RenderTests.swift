@@ -215,6 +215,41 @@ struct RenderTests {
     }
 
     @Test
+    func shadowScalesOnlyItsOwnLight() throws {
+        let model = try models.model([(.zero, models.material())])
+        let darkRoom = try PBREnvironment(source: .uniform(.zero), device: models.device)
+        // Depth 0 everywhere: with lessEqual, every fragment behind it (depth 0.5) is in shadow.
+        let descriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .depth32Float, width: 4, height: 4, mipmapped: false)
+        descriptor.textureType = .type2DArray
+        descriptor.usage = .shaderRead
+        descriptor.storageMode = .shared
+        let map = try #require(models.device.makeTexture(descriptor: descriptor))
+        let zeros = [Float](repeating: 0, count: 16)
+        map.replace(region: MTLRegionMake2D(0, 0, 4, 4), mipmapLevel: 0, slice: 0, withBytes: zeros, bytesPerRow: 16, bytesPerImage: 64)
+        var lightToShadowSpace = matrix_identity_float4x4
+        lightToShadowSpace.columns.3.z = 0.5
+        let shadows = PBRShadows(map: map, sliceViewProjections: [lightToShadowSpace], filterRadius: 0)
+
+        var shadowed = PBRLight.directional(direction: [0, 0, -1], intensity: 0.5)
+        shadowed.shadowSliceStart = 0
+        shadowed.shadowSliceCount = 1
+        let unshadowed = PBRLight.directional(direction: [0, 0, -1], intensity: 0.5)
+
+        func center(_ lights: [PBRLight], shadows: PBRShadows?) throws -> SIMD4<UInt8> {
+            var lighting = PBRLighting(lights: lights, environment: darkRoom)
+            lighting.shadows = shadows
+            let scene = PBRScene(model: model, viewMatrix: view, projectionMatrix: projection, lighting: lighting, viewportSize: size)
+            return try render(scene)[self.center]
+        }
+
+        let one = try center([unshadowed], shadows: nil)
+        let both = try center([shadowed, unshadowed], shadows: nil)
+        let oneShadowed = try center([shadowed, unshadowed], shadows: shadows)
+        #expect(Int(both.x) > Int(one.x) + 10, "Without a map, the shadowed light still lights: \(both) vs \(one)")
+        #expect(abs(Int(oneShadowed.x) - Int(one.x)) <= 1, "Only the shadowed light is removed: \(oneShadowed) vs \(one)")
+    }
+
+    @Test
     func hdrOutputKeepsValuesAboveOne() throws {
         var uniforms = PBRMaterialUniforms.defaults(baseColor: [0, 0, 0, 1], metallic: 0, roughness: 1)
         uniforms.emissiveFactor = [1, 1, 1]

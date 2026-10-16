@@ -122,7 +122,10 @@ public struct PBRRenderer: Element {
             irradiance: environment.irradiance,
             specular: environment.specular,
             brdfLookup: environment.brdfLookup,
-            sampler: shaders.environmentSampler
+            sampler: shaders.environmentSampler,
+            shadow: lighting.shadows?.uniforms ?? PBRShadowUniforms(),
+            shadowMap: lighting.shadows?.map ?? shaders.placeholderShadowMap,
+            shadowSampler: lighting.shadows?.sampler ?? shaders.shadowSampler
         )
 
         // Blended batches are sorted from between the eyes.
@@ -431,6 +434,9 @@ private struct FrameBindings {
     var specular: MTLTexture
     var brdfLookup: MTLTexture
     var sampler: MTLSamplerState
+    var shadow: PBRShadowUniforms
+    var shadowMap: MTLTexture
+    var shadowSampler: MTLSamplerState
 
     func apply(to content: some Element) -> some Element {
         content
@@ -442,6 +448,9 @@ private struct FrameBindings {
             .parameter("brdfLookup", texture: brdfLookup)
             .parameter("environmentSampler", samplerState: sampler)
             .parameter("transmissionScene", texture: transmissionScene)
+            .parameter("shadow", value: shadow)
+            .parameter("shadowMap", texture: shadowMap)
+            .parameter("shadowSampler", samplerState: shadowSampler)
     }
 }
 
@@ -460,6 +469,9 @@ struct PBRShaders {
     /// Bound as the transmission scene when there is none; never sampled then.
     var placeholderTexture: MTLTexture
     var environmentSampler: MTLSamplerState
+    /// Bound as the shadow map when there is none; never sampled then.
+    var placeholderShadowMap: MTLTexture
+    var shadowSampler: MTLSamplerState
 
     // A static let is initialized once, thread-safely. Renderers are built on several threads. Immutable after creation.
     nonisolated(unsafe) private static let cached = Result { try make() }
@@ -497,6 +509,22 @@ struct PBRShaders {
                 descriptor.textureType = .type2DArray
                 descriptor.usage = .shaderRead
                 return descriptor
+              }()),
+              let placeholderShadowMap = device.makeTexture(descriptor: {
+                let descriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .depth32Float, width: 1, height: 1, mipmapped: false)
+                descriptor.textureType = .type2DArray
+                descriptor.usage = .shaderRead
+                descriptor.storageMode = .private
+                return descriptor
+              }()),
+              let shadowSampler = device.makeSamplerState(descriptor: {
+                let descriptor = MTLSamplerDescriptor()
+                descriptor.minFilter = .linear
+                descriptor.magFilter = .linear
+                descriptor.sAddressMode = .clampToEdge
+                descriptor.tAddressMode = .clampToEdge
+                descriptor.compareFunction = .lessEqual
+                return descriptor
               }())
         else {
             throw PBREnvironmentError.resourceCreationFailed("renderer resources")
@@ -515,7 +543,9 @@ struct PBRShaders {
             backgroundFragment: try ibl.background_fragment,
             copyFragment: try ibl.copy_fragment,
             placeholderTexture: placeholderTexture,
-            environmentSampler: sampler
+            environmentSampler: sampler,
+            placeholderShadowMap: placeholderShadowMap,
+            shadowSampler: shadowSampler
         )
     }
 }

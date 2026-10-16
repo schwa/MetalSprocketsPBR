@@ -272,12 +272,13 @@ Fix: declare it `@concurrent public func run() async`.
 ## 14: Per-light shadow input for the lighting shader
 
 +++
-status: open
+status: closed
 priority: medium
 kind: feature
 labels: effort:l, area:shading
 created: 2026-10-15T19:43:47Z
-updated: 2026-10-16T02:00:59Z
+updated: 2026-10-16T02:04:34Z
+closed: 2026-10-16T02:04:34Z
 +++
 
 PBRLight has no shadow input, so a client cannot shadow one light's contribution without shadowing all of them. MetalSprocketsSceneGraph uses a screen-space mask after the PBR pass, which darkens every light at once: surfaces facing away from a shadowing light, or outside its category, get darker anyway (MSSG #102). Needs a way to pass a depth2d_array shadow map, per-slice view-projections and each light's slice range (start, count), and have the lighting loop scale each light's direct contribution by its own PCF result. MSSG's BlinnPhong.metal (sliceShadow, shadowSliceStart/Count on the light) is a working reference.
