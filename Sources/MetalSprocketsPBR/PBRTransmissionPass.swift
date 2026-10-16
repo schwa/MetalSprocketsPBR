@@ -102,7 +102,7 @@ public struct PBRTransmissionPass: Element {
 
     /// The opaque scene of every renderer's model, configured as for the main pass (overrides, stereo, ...). The first
     /// renderer's lighting and views draw the background.
-    init(renderers: [PBRRenderer], target: PBRTransmissionTarget, showsBackground: Bool) {
+    public init(renderers: [PBRRenderer], target: PBRTransmissionTarget, showsBackground: Bool = false) {
         precondition(!renderers.isEmpty, "A transmission pass draws at least one model")
         renderer = renderers[0].prePass(.opaque)
         additionalRenderers = renderers.dropFirst().map { $0.prePass(.opaque) }

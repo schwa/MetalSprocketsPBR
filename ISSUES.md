@@ -309,10 +309,13 @@ Needed by MetalSprocketsSceneGraph #114 (PBRSceneMaterial.renderState).
 ## 16: PBRTransmissionPass cannot be built from existing renderers
 
 +++
-status: new
+status: closed
 priority: low
 kind: enhancement
+labels: effort:xs, area:rendering
 created: 2026-10-16T02:06:06Z
+updated: 2026-10-16T02:15:22Z
+closed: 2026-10-16T02:15:22Z
 +++
 
 PBRTransmissionPass.init(renderers:target:showsBackground:) is internal. The public init takes a model and builds a new PBRRenderer, so the pass loses settings made on the caller's renderers (materialOverrides, several models in one target).
