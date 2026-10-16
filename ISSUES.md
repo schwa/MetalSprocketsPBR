@@ -349,3 +349,22 @@ Expected: PBRShadows gains intensity and color, applied per light in lightShadow
 Needed by MetalSprocketsSceneGraph #102.
 
 ---
+
+## 18: PBRTransmissionPass cannot draw non-PBR content
+
++++
+status: new
+priority: low
+kind: enhancement
+created: 2026-10-16T12:15:55Z
++++
+
+PBRTransmissionPass draws only its PBRRenderers (and the environment background) into the transmission target. Callers that mix renderers cannot add their own opaque content. Glass then refracts only the PBR part of the scene.
+
+MetalSprocketsSceneGraph draws Blinn-Phong and ShaderMaterial meshes with its own renderers. These meshes are missing behind PBR glass.
+
+Expected: an optional element (for example additionalContent: AnyElement?) drawn in the 'PBR Transmission Scene' render pass after the PBR renderers. It uses the same target, reversed depth and view amplification. The caller is responsible for linear (not tone-mapped) output.
+
+Needed by MetalSprocketsSceneGraph #129.
+
+---
