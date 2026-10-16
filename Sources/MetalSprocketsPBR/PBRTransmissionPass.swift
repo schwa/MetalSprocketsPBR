@@ -94,20 +94,24 @@ public struct PBRTransmissionPass: Element {
     public var target: PBRTransmissionTarget
     /// Also draw the environment behind the scene, so glass shows it.
     public var showsBackground: Bool
+    /// Non-PBR opaque content drawn into the target after the PBR renderers, with the same reversed depth and view
+    /// amplification. It must write linear (not tone-mapped) radiance.
+    public var additionalContent: AnyElement?
 
-    public init(model: PBRModel, viewMatrix: simd_float4x4, projectionMatrix: simd_float4x4, modelMatrix: simd_float4x4 = matrix_identity_float4x4, lighting: PBRLighting? = nil, pose: PBRPose? = nil, target: PBRTransmissionTarget, showsBackground: Bool = false) {
+    public init(model: PBRModel, viewMatrix: simd_float4x4, projectionMatrix: simd_float4x4, modelMatrix: simd_float4x4 = matrix_identity_float4x4, lighting: PBRLighting? = nil, pose: PBRPose? = nil, target: PBRTransmissionTarget, showsBackground: Bool = false, additionalContent: AnyElement? = nil) {
         let renderer = PBRRenderer(model: model, viewMatrix: viewMatrix, projectionMatrix: projectionMatrix, modelMatrix: modelMatrix, lighting: lighting, pose: pose, transmissionTarget: target)
-        self.init(renderers: [renderer], target: target, showsBackground: showsBackground)
+        self.init(renderers: [renderer], target: target, showsBackground: showsBackground, additionalContent: additionalContent)
     }
 
     /// The opaque scene of every renderer's model, configured as for the main pass (overrides, stereo, ...). The first
     /// renderer's lighting and views draw the background.
-    public init(renderers: [PBRRenderer], target: PBRTransmissionTarget, showsBackground: Bool = false) {
+    public init(renderers: [PBRRenderer], target: PBRTransmissionTarget, showsBackground: Bool = false, additionalContent: AnyElement? = nil) {
         precondition(!renderers.isEmpty, "A transmission pass draws at least one model")
         renderer = renderers[0].prePass(.opaque)
         additionalRenderers = renderers.dropFirst().map { $0.prePass(.opaque) }
         self.target = target
         self.showsBackground = showsBackground
+        self.additionalContent = additionalContent
     }
 
     public var body: some Element {
@@ -142,6 +146,9 @@ public struct PBRTransmissionPass: Element {
                         background
                     }
                     PBRRenderer.all(renderers)
+                    if let additionalContent {
+                        additionalContent
+                    }
                 }
                 .renderPipelineDescriptorTransformer { $0.maxVertexAmplificationCount = viewCount }
             }

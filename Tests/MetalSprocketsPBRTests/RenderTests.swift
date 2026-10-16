@@ -159,6 +159,22 @@ struct RenderTests {
     }
 
     @Test
+    func transmissionPassDrawsAdditionalContent() throws {
+        let behind = try models.model([([0, 0, -1], models.material(color: [0, 0, 1, 1]))])
+        let glass = try models.model([([0, 0, 0.5], models.material(color: [1, 1, 1, 1], transmission: 1))])
+        let target = try PBRTransmissionTarget(device: models.device, size: 32)
+        let behindRenderer = PBRRenderer(model: behind, viewMatrix: view, projectionMatrix: projection, lighting: lighting)
+        let glassRenderer = PBRRenderer(model: glass, viewMatrix: view, projectionMatrix: projection, lighting: lighting, transmissionTarget: target)
+        let pixels = try render(try Group {
+            PBRTransmissionPass(renderers: [glassRenderer], target: target, additionalContent: AnyElement(behindRenderer))
+            try RenderPass {
+                glassRenderer
+            }
+        })
+        #expect(Int(pixels[center].z) > Int(pixels[center].x) + 20, "Additional content is seen through glass: \(pixels[center])")
+    }
+
+    @Test
     func blendedQuadsOfSeveralModelsSortTogether() throws {
         let near = try models.model([([0, 0, 1], models.material(color: [1, 0, 0, 0.5], blended: true)), ([0.2, 0, 0.9], models.material(color: [1, 0, 0, 0.5], blended: true))])
         let far = try models.model([([0, 0, -1], models.material(color: [0, 0, 1, 0.5], blended: true))])
