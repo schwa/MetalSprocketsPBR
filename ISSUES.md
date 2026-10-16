@@ -328,3 +328,22 @@ Expected: a public init that takes the renderers used for the main pass (e.g. ma
 Needed by MetalSprocketsSceneGraph (transmission pre-pass, follow-up to #123).
 
 ---
+
+## 17: Shadow intensity and color for per-light shadows
+
++++
+status: new
+priority: medium
+kind: enhancement
+created: 2026-10-16T02:39:16Z
++++
+
+PBRShadows (#14) scales a shadowed light's direct contribution by the full PCF result. Callers cannot set how strongly shadows darken or what color they tint.
+
+MetalSprocketsSceneGraph's SceneGraphShadows has intensity (0 leaves shadowed pixels unchanged, 1 fully shadows; default 0.6) and color (like SCNLight.shadowColor). Its Blinn-Phong shader applies both per light. If PBR switches to in-shader shadows, it loses both.
+
+Expected: PBRShadows gains intensity and color, applied per light in lightShadow: contribution *= mix(1, mix(color, 1, lit), intensity), or the same formula as MetalSprocketsSceneGraph's BlinnPhong.metal.
+
+Needed by MetalSprocketsSceneGraph #102.
+
+---
