@@ -389,3 +389,26 @@ Expected: make PBRTransmissionPass generic over the content type (for example PB
 Follow-up to #18.
 
 ---
+
+## 20: Explore RoboCloth cloth materials
+
++++
+status: new
+priority: low
+kind: feature
+created: 2026-10-23T13:52:04Z
++++
+
+RoboCloth (https://github.com/theialab/robocloth, local copy in ~/Projects/Vendor) has 500 captured cloth materials. They are released as neural BRDFs: a 16-channel latent texture plus a shared MLP. A Disney/anisotropic PBR fit (`configs/material/stage2_pbr.yaml`, `LearnablePBRTexturedModel`) also exists.
+
+Options:
+1. PBR fit (preferred first step). Bake per-texel params to textures with an offline uv script. Map them to metal-roughness + anisotropy + sheen. No shader work needed.
+2. Neural BRDF in Metal. MLP weights go in a buffer and the latent in 4 RGBA16F textures. This costs about 200K MACs/sample and it does not work with pre-filtered IBL.
+
+To do:
+- Check `models/neural_brdf_refactored.py` for the PBR param layout.
+- Find out if PBR checkpoints are published on HF (theialab/RoboCloth-assets).
+- Check the code and data licenses.
+- Compare against their Mitsuba renders (cloth_on_bar).
+
+---
