@@ -393,23 +393,32 @@ Follow-up to #18.
 ## 20: Explore RoboCloth cloth materials
 
 +++
-status: new
+status: open
 priority: low
 kind: feature
+labels: effort:m, area:shading
 created: 2026-10-23T13:52:04Z
+updated: 2026-10-24T12:00:49Z
 +++
 
-RoboCloth (https://github.com/theialab/robocloth, local copy in ~/Projects/Vendor) has 500 captured cloth materials. They are released as neural BRDFs: a 16-channel latent texture plus a shared MLP. A Disney/anisotropic PBR fit (`configs/material/stage2_pbr.yaml`, `LearnablePBRTexturedModel`) also exists.
+RoboCloth (https://github.com/theialab/robocloth, local copy in ~/Projects/Vendor) has 500 captured cloth materials. They are released as neural BRDFs (a 16-channel latent texture plus a shared MLP) and as a Disney PBR fit.
 
-Options:
-1. PBR fit (preferred first step). Bake per-texel params to textures with an offline uv script. Map them to metal-roughness + anisotropy + sheen. No shader work needed.
-2. Neural BRDF in Metal. MLP weights go in a buffer and the latent in 4 RGBA16F textures. This costs about 200K MACs/sample and it does not work with pre-filtered IBL.
+Findings:
+- Checkpoints: HF `theialab/RoboCloth-assets`, `checkpoints/stage2/RoboCloth/<material>/PBR_epoch*.ckpt`.
+- Licenses: code Apache-2.0; dataset and checkpoints CC BY 4.0 (attribution needed).
+- PBR latent layout (`rendering/brdf_plugin/material/anisotropic_pbr.py`): [0:12] baseColor(3), ao, roughness, metallic, ior, aniso_strength, aniso_rot, specularTint, sheen, sheenTint; [12:28] neural-geometry latent; [28:34] predicted normal(3) + tangent(3). 2048² texture.
 
-To do:
-- Check `models/neural_brdf_refactored.py` for the PBR param layout.
-- Find out if PBR checkpoints are published on HF (theialab/RoboCloth-assets).
-- Check the code and data licenses.
-- Compare against their Mitsuba renders (cloth_on_bar).
+Option 1 (do first, effort:m): bake the PBR fit.
+- uv script: load the checkpoint, decode the latent with the same activations/ranges as `PBRDecoder`, write base color, ORM, anisotropy, sheen and normal maps.
+- Map Disney sheen/sheenTint to glTF sheen color/roughness. Check that anisotropy rotation and the tangent frame match our conventions.
+- This is an approximation: the neural-geometry UV-offset MLP cannot be baked.
+
+Option 2 (research, effort:l-xl): neural BRDF fragment shader.
+- MLP weights in a buffer, latent in 4 RGBA16F textures, about 200K MACs per light sample.
+- No pre-filtered IBL: needs many env samples or an analytic ambient fallback.
+- A separate material type outside the glTF model.
+
+Verify: compare against their Mitsuba renders (cloth_on_bar).
 
 ---
 
