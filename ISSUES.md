@@ -416,12 +416,13 @@ To do:
 ## 21: Keep the sampler descriptor with each PBRMaterial.Binding
 
 +++
-status: open
+status: closed
 priority: low
 kind: enhancement
 labels: effort:s, area:shading
 created: 2026-10-24T11:53:22Z
-updated: 2026-10-24T11:53:25Z
+updated: 2026-10-24T11:56:48Z
+closed: 2026-10-24T11:56:48Z
 +++
 
 PBRMaterial.Binding holds an MTLSamplerState, which cannot be read back. SceneSprockets saves scenes to disk (SceneSprockets #180) and needs each texture's filters and address modes. Keep the MTLSamplerDescriptor (or a small Codable sampler description) next to the sampler state. Today SceneSprockets loads every texture with linear repeat.

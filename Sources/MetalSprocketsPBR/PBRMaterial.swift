@@ -49,11 +49,20 @@ public extension PBRMaterialUniforms {
 public final class PBRMaterial {
     public struct Binding {
         public var texture: MTLTexture
-        public var sampler: MTLSamplerState
+        public let sampler: MTLSamplerState
+        // Kept because MTLSamplerState cannot be read back (e.g. to save filters and address modes).
+        public let samplerDescriptor: MTLSamplerDescriptor
 
-        public init(texture: MTLTexture, sampler: MTLSamplerState) {
+        public init(texture: MTLTexture, samplerDescriptor: MTLSamplerDescriptor, device: MTLDevice) throws {
+            // swiftlint:disable:next force_cast
+            let descriptor = samplerDescriptor.copy() as! MTLSamplerDescriptor
+            descriptor.supportArgumentBuffers = true
+            guard let sampler = device.makeSamplerState(descriptor: descriptor) else {
+                throw PBRGeometryError.bufferAllocationFailed
+            }
             self.texture = texture
             self.sampler = sampler
+            self.samplerDescriptor = descriptor
         }
     }
 
@@ -146,10 +155,6 @@ public final class PBRMaterial {
         samplerDescriptor.mipFilter = .linear
         samplerDescriptor.sAddressMode = .repeat
         samplerDescriptor.tAddressMode = .repeat
-        samplerDescriptor.supportArgumentBuffers = true
-        guard let sampler = device.makeSamplerState(descriptor: samplerDescriptor) else {
-            throw PBRGeometryError.bufferAllocationFailed
-        }
-        return Binding(texture: texture, sampler: sampler)
+        return try Binding(texture: texture, samplerDescriptor: samplerDescriptor, device: device)
     }
 }
