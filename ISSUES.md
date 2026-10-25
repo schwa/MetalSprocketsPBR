@@ -437,3 +437,19 @@ closed: 2026-10-24T11:56:48Z
 PBRMaterial.Binding holds an MTLSamplerState, which cannot be read back. SceneSprockets saves scenes to disk (SceneSprockets #180) and needs each texture's filters and address modes. Keep the MTLSamplerDescriptor (or a small Codable sampler description) next to the sampler state. Today SceneSprockets loads every texture with linear repeat.
 
 ---
+
+## 22: PBRTransmissionPass: first pass has no queue barrier, races the previous frame
+
++++
+status: closed
+priority: high
+kind: bug
+labels: effort:xs
+created: 2026-10-25T15:44:32Z
+updated: 2026-10-25T15:44:49Z
+closed: 2026-10-25T15:44:49Z
++++
+
+Found from SceneSprockets #242 (pink garbage frames while orbiting a scene with transmissive materials, much worse in Debug and when SwiftUI is busy). A GPU capture shows that every pass in a frame starts with a Metal 4 queue barrier except 'PBR Transmission Scene'. That pass clears and re-renders the PBRTransmissionTarget color and depth textures, which are the same textures every frame. Metal 4 does not order work across submissions on a queue, so the clear can overlap the previous frame's main pass (fragment shaders sampling the transmission texture) and its mipmap and backdrop blits. Fix: QueueBarrier(after: [.fragment, .blit], before: .fragment) at the start of the pass.
+
+---

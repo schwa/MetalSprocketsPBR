@@ -141,6 +141,10 @@ public struct PBRTransmissionPass<AdditionalContent: Element>: Element {
         }
         return try Group {
             try RenderPass(label: "PBR Transmission Scene") {
+                // The target is reused every frame. Metal 4 does not order submissions on a queue, so the previous
+                // frame's main pass may still be sampling it, and its mipmap and backdrop blits may still be writing
+                // it, when this pass clears it. Without this barrier that showed as garbage frames under load.
+                QueueBarrier(after: [.fragment, .blit], before: .fragment)
                 try Group {
                     if showsBackground {
                         background
