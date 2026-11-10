@@ -453,3 +453,22 @@ closed: 2026-10-25T15:44:49Z
 Found from SceneSprockets #242 (pink garbage frames while orbiting a scene with transmissive materials, much worse in Debug and when SwiftUI is busy). A GPU capture shows that every pass in a frame starts with a Metal 4 queue barrier except 'PBR Transmission Scene'. That pass clears and re-renders the PBRTransmissionTarget color and depth textures, which are the same textures every frame. Metal 4 does not order work across submissions on a queue, so the clear can overlap the previous frame's main pass (fragment shaders sampling the transmission texture) and its mipmap and backdrop blits. Fix: QueueBarrier(after: [.fragment, .blit], before: .fragment) at the start of the pass.
 
 ---
+
+## 23: PBRMaterial requires an MTLDevice at construction
+
++++
+status: closed
+priority: medium
+kind: enhancement
+created: 2026-11-10T17:45:41Z
+updated: 2026-11-10T17:50:18Z
+closed: 2026-11-10T17:50:18Z
++++
+
+`PBRMaterial.init(name:uniforms:doubleSided:textureBindings:device:)` builds `resourceBuffer` immediately. `PBRMaterial.Binding.init(texture:samplerDescriptor:device:)` and `placeholderBinding(device:)` build `MTLSamplerState`s and placeholder textures immediately. So a material (even one with only uniform values and no textures) cannot exist without a device.
+
+Downstream (SceneSprockets #355, #358, #359, #360) wants scene construction to be device-free, with GPU resources made later by the RenderView that draws the scene. Because `PBRMaterial` has no device-independent form, every material has to be given a device when it is built.
+
+- `2026-11-10T17:50:18Z`: Won't fix: PBRMaterial is a GPU type and is meant to need a device.
+
+---
