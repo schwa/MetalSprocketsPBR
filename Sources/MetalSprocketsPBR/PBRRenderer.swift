@@ -261,7 +261,7 @@ public struct PBRRenderer: Element {
             context.bindings.apply(to: content)
         }
         .vertexDescriptor(vertexDescriptor)
-        .depthCompare(function: depthFunction, enabled: true)
+        .depthCompare(function: depthFunction, writes: true)
     }
 
     /// ``draw(_:modelIsMirrored:skinPose:)`` plus the morph target inputs, for batches with morph targets.

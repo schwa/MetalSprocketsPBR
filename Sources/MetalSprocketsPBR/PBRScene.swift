@@ -163,7 +163,7 @@ public struct PBRScene: Element {
                     }
                     .parameter("source", texture: upscale.output)
                 }
-                .depthCompare(function: .always, enabled: false)
+                .depthCompare(function: .always, writes: false)
             }
         }
         .useResourceCollection(upscale.resources)

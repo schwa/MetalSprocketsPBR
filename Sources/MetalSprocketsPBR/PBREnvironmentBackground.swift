@@ -70,6 +70,6 @@ public struct PBREnvironmentBackground: Element {
             .parameter("uniforms", value: uniforms)
             .parameter("environment", texture: source)
         }
-        .depthCompare(function: .always, enabled: false)
+        .depthCompare(function: .always, writes: false)
     }
 }
