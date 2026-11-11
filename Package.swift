@@ -14,12 +14,12 @@ let package = Package(
         .library(name: "MetalSprocketsPBRShaders", targets: ["MetalSprocketsPBRShaders"])
     ],
     dependencies: [
-        .package(url: "https://github.com/schwa/MetalSprockets", .upToNextMinor(from: "0.2.3")),
+        .package(url: "https://github.com/schwa/MetalSprockets", .upToNextMinor(from: "0.2.9")),
         .package(url: "https://github.com/schwa/MetalCompilerPlugin", .upToNextMinor(from: "0.4.1")),
         .package(url: "https://github.com/schwa/MetalSupport", .upToNextMinor(from: "1.0.7")),
-        .package(url: "https://github.com/schwa/SwiftMesh", .upToNextMinor(from: "0.0.10")),
+        .package(url: "https://github.com/schwa/SwiftMesh", .upToNextMinor(from: "0.1.0")),
         .package(url: "https://github.com/schwa/GeometryLite3D", .upToNextMinor(from: "0.3.0")),
-        .package(url: "https://github.com/schwa/GoldenImage", .upToNextMinor(from: "0.1.6"))
+        .package(url: "https://github.com/schwa/GoldenImage", .upToNextMinor(from: "0.1.7"))
     ],
     targets: [
         .target(

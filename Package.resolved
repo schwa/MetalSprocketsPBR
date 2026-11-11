@@ -1,5 +1,5 @@
 {
-  "originHash" : "cc7fa418afdcd89d97d5d288210af529674e15c943be30c241b4160141a5d872",
+  "originHash" : "c5ea5236350da11d94fdbfb3838020d6a11bc46b048c515562b54514c7bd039c",
   "pins" : [
     {
       "identity" : "geometrylite2d",
@@ -24,8 +24,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/schwa/GoldenImage",
       "state" : {
-        "revision" : "03b4d1557869ebb2161551edf97f7a27630dc7a7",
-        "version" : "0.1.6"
+        "revision" : "a1d17d68e763bf3ea02e5d634bb69460a1f7be9c",
+        "version" : "0.1.7"
       }
     },
     {
@@ -69,8 +69,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/apple/swift-collections.git",
       "state" : {
-        "revision" : "f96b909e1a9e469620bc5037c1e24e00153f376f",
-        "version" : "1.7.5"
+        "revision" : "88754449ab766a739610b660e117762115fabc9c",
+        "version" : "1.7.6"
       }
     },
     {
@@ -96,8 +96,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/schwa/SwiftMesh",
       "state" : {
-        "revision" : "72a67636ad7f088f75b4abdb7b5e8ee2cf9ee022",
-        "version" : "0.0.10"
+        "revision" : "6ee613b1e93e0432954cc271a542f3961310cc3a",
+        "version" : "0.1.0"
       }
     }
   ],
