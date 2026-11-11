@@ -18,7 +18,7 @@ let package = Package(
         .package(url: "https://github.com/schwa/MetalCompilerPlugin", .upToNextMinor(from: "0.4.1")),
         .package(url: "https://github.com/schwa/MetalSupport", .upToNextMinor(from: "1.0.7")),
         .package(url: "https://github.com/schwa/SwiftMesh", .upToNextMinor(from: "0.0.10")),
-        .package(url: "https://github.com/schwa/GeometryLite3D", .upToNextMinor(from: "0.2.4")),
+        .package(url: "https://github.com/schwa/GeometryLite3D", .upToNextMinor(from: "0.3.0")),
         .package(url: "https://github.com/schwa/GoldenImage", .upToNextMinor(from: "0.1.6"))
     ],
     targets: [
