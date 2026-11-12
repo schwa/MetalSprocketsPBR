@@ -472,3 +472,23 @@ Downstream (SceneSprockets #355, #358, #359, #360) wants scene construction to b
 - `2026-11-10T17:50:18Z`: Won't fix: PBRMaterial is a GPU type and is meant to need a device.
 
 ---
+
+## 24: No way to apply screen-space ambient occlusion to only the indirect lighting
+
++++
+status: new
+priority: medium
+kind: feature
+labels: effort:m
+created: 2026-11-12T03:34:27Z
++++
+
+The PBR shader has one source of ambient occlusion: the material's occlusion texture (`occlusionTexture`, scaled by `occlusionStrength`), which multiplies the image-based / indirect lighting.
+
+A renderer that computes screen-space ambient occlusion (SSAO) has no way to give that per-pixel value to the PBR shader. Its only option is to darken the finished frame after shading, which also darkens direct lighting, emission and specular highlights, so occluded areas go darker than they should and lit creases lose their highlights.
+
+Expected: a renderer can supply a screen-space occlusion value per pixel that multiplies only the indirect (ambient / image-based) terms, combined with the material's occlusion texture.
+
+Reported from SceneSprockets #136 (SceneSprockets' ambient occlusion is a post-process that darkens the final lit color).
+
+---
