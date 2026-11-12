@@ -492,3 +492,21 @@ Expected: a renderer can supply a screen-space occlusion value per pixel that mu
 Reported from SceneSprockets #136 (SceneSprockets' ambient occlusion is a post-process that darkens the final lit color).
 
 ---
+
+## 25: Own PBRStereoViews duplicates other packages' stereo view types
+
++++
+status: new
+priority: medium
+kind: enhancement
+labels: effort:s
+created: 2026-11-12T20:42:20Z
++++
+
+PBRStereoViews is this package's own copy of per-view stereo matrices, viewports and vertex amplification setup. MetalSprocketsAddOns, MetalSprocketsPBR, MetalSprocketsParticles and SceneSprockets each have one, and callers convert between them at every boundary. See MetalSprockets #MetalSprockets#558.
+
+## Proposed fix (per schwa)
+
+Once MetalSprockets ships a shared StereoViews (#MetalSprockets#558) in a tagged release, adopt it in place of PBRStereoViews and bump the MetalSprockets dependency.
+
+---
