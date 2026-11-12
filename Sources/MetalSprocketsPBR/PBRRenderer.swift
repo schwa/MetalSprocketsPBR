@@ -30,7 +30,7 @@ public struct PBRRenderer: Element {
     public var materialOverrides: PBRModel.MaterialOverrides = [:]
     /// Draw these views at once (stereo, e.g. visionOS) instead of `viewMatrix` and `projectionMatrix`. The pipelines
     /// need a matching `maxVertexAmplificationCount` (``PBRImmersiveScene`` sets it). No transmission pre-pass then.
-    public var stereo: PBRStereoViews?
+    public var stereo: StereoViews?
     /// Skip point and line primitives: render passes with a rasterization rate map (visionOS foveation) only allow
     /// triangles, and Metal validation aborts on anything else.
     public var drawsTrianglesOnly = false
@@ -375,7 +375,7 @@ extension PBRRenderer {
     }
 
     /// This renderer drawing `stereo`'s views.
-    func viewing(_ stereo: PBRStereoViews?) -> Self {
+    func viewing(_ stereo: StereoViews?) -> Self {
         var renderer = self
         renderer.stereo = stereo
         return renderer

@@ -4,7 +4,7 @@ import MetalSprockets
 import MetalSprocketsUI
 import simd
 
-/// Draws models in a visionOS immersive space: both eyes at once (``PBRStereoViews``), into the compositor's
+/// Draws models in a visionOS immersive space: both eyes at once (``StereoViews``), into the compositor's
 /// layered, reverse-Z targets, inside an `ImmersiveRenderPass` (so progressive immersion masks it).
 ///
 /// ```swift
@@ -40,9 +40,8 @@ public struct PBRImmersiveScene: Element {
         self.init(items: [PBRScene.Item(model: model, pose: pose, modelMatrix: modelMatrix)], context: context, lighting: lighting)
     }
 
-    var stereo: PBRStereoViews {
-        let views = 0 ..< context.viewCount
-        return PBRStereoViews(viewMatrices: views.map { context.viewMatrix(eye: $0) }, projectionMatrices: views.map { context.projectionMatrix(eye: $0) }, viewports: context.viewports)
+    var stereo: StereoViews {
+        context.stereoViews
     }
 
     public var body: some Element {

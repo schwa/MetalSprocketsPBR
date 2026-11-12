@@ -20,7 +20,7 @@ public struct PBREnvironmentBackground: Element {
     /// Write linear HDR radiance without exposure or tone mapping (for ``PBRTransmissionPass``).
     var linearOutput = false
     /// Draw these views at once instead of `viewMatrix` and `projectionMatrix` (see ``PBRRenderer/stereo``).
-    public var stereo: PBRStereoViews?
+    public var stereo: StereoViews?
 
     public init(environment: PBREnvironment, viewMatrix: simd_float4x4, projectionMatrix: simd_float4x4, intensity: Float = 1, exposure: Float = 1, blur: Float = 0) {
         self.environment = environment

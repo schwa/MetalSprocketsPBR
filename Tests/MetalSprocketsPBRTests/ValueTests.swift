@@ -1,5 +1,6 @@
 import GeometryLite3D
 import Metal
+import MetalSprockets
 @testable import MetalSprocketsPBR
 import MetalSprocketsPBRShaders
 import simd
@@ -64,7 +65,7 @@ struct ValueTests {
         let left = simd_float4x4(translation: [1, 0, 0])
         let right = simd_float4x4(translation: [-1, 0, 0])
         let viewport = MTLViewport(originX: 0, originY: 0, width: 1, height: 1, znear: 0, zfar: 1)
-        let stereo = PBRStereoViews(viewMatrices: [left, right], projectionMatrices: [matrix_identity_float4x4, matrix_identity_float4x4], viewports: [viewport, viewport])
+        let stereo = StereoViews(viewMatrices: [left, right], projectionMatrices: [matrix_identity_float4x4, matrix_identity_float4x4], viewports: [viewport, viewport])
         #expect(stereo.count == 2)
         #expect(stereo.viewProjections == [left, right])
         #expect(stereo.cameraPositions == [[-1, 0, 0], [1, 0, 0]])

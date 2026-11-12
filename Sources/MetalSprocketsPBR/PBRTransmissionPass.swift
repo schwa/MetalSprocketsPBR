@@ -125,7 +125,7 @@ public struct PBRTransmissionPass<AdditionalContent: Element>: Element {
         // In stereo, each eye draws into its own slice of the target, covering all of it.
         let stereo = renderer.stereo.map { views in
             let viewport = MTLViewport(originX: 0, originY: 0, width: Double(target.width), height: Double(target.height), znear: 0, zfar: 1)
-            return PBRStereoViews(viewMatrices: views.viewMatrices, projectionMatrices: views.projectionMatrices, viewports: Array(repeating: viewport, count: views.count))
+            return StereoViews(viewMatrices: views.viewMatrices, projectionMatrices: views.projectionMatrices, viewports: Array(repeating: viewport, count: views.count))
         }
         let viewCount = stereo?.count ?? 1
         var background = PBREnvironmentBackground(lighting: renderer.lighting, viewMatrix: renderer.viewMatrix, projectionMatrix: renderer.projectionMatrix)

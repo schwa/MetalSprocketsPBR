@@ -91,7 +91,7 @@ struct MergedRenderTests {
         renderer.renderPassDescriptor.renderTargetArrayLength = 2
 
         let viewport = MTLViewport(originX: 0, originY: 0, width: 32, height: 32, znear: 0, zfar: 1)
-        let stereo = PBRStereoViews(
+        let stereo = StereoViews(
             viewMatrices: [LookAt(position: [-0.1, 0, 3], target: .zero, up: [0, 1, 0]).viewMatrix, LookAt(position: [0.1, 0, 3], target: .zero, up: [0, 1, 0]).viewMatrix],
             projectionMatrices: [projection, projection],
             viewports: [viewport, viewport]
