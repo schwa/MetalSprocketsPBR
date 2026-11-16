@@ -45,6 +45,20 @@ public struct PBRShadows: @unchecked Sendable {
     }
 }
 
+/// Screen-space ambient occlusion computed by the caller, e.g. SSAO. It darkens only indirect (image-based) light,
+/// on top of the material's occlusion texture. Ignored in stereo and by the transmission pre-pass.
+public struct PBRAmbientOcclusion: @unchecked Sendable {
+    /// A 2D texture with one texel per render target pixel; the red channel is the occlusion (1 is unoccluded).
+    public var texture: MTLTexture
+    /// 0 leaves indirect light unchanged, 1 applies the full occlusion.
+    public var strength: Float
+
+    public init(texture: MTLTexture, strength: Float = 1) {
+        self.texture = texture
+        self.strength = strength
+    }
+}
+
 /// Lights, image-based lighting, exposure and tone mapping for ``PBRRenderer``. There is always an environment.
 public struct PBRLighting: Sendable {
     public var lights: [PBRLight]
@@ -57,6 +71,8 @@ public struct PBRLighting: Sendable {
     public var environmentRotation: Float = 0
     /// Nil: no light is shadowed.
     public var shadows: PBRShadows?
+    /// Nil: no screen-space occlusion.
+    public var ambientOcclusion: PBRAmbientOcclusion?
 
     public init(lights: [PBRLight] = [], environment: PBREnvironment = .studio, environmentIntensity: Float = 1, exposure: Float = 1, toneMapping: PBRToneMapping = .pbrNeutral) {
         self.lights = lights

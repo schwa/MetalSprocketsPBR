@@ -277,6 +277,8 @@ struct PBRFrameUniforms {
     PBRShaderToneMapping toneMapping;
     // World direction to environment direction (the inverse of the environment's rotation). Zero means identity.
     simd_float3x3 environmentRotation;
+    // Scales the screen-space occlusion texture's effect on indirect light. Zero disables it.
+    float ambientOcclusionStrength;
 };
 typedef struct PBRFrameUniforms PBRFrameUniforms;
 

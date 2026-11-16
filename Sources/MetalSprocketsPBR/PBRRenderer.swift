@@ -113,6 +113,8 @@ public struct PBRRenderer: Element {
         frame.hasTransmissionScene = transmissionScene == nil ? 0 : 1
         frame.transmissionAsCoverage = transmissionAsCoverage ? 1 : 0
         frame.transmissionSceneMipCount = Float(transmissionScene?.mipmapLevelCount ?? 1)
+        let ambientOcclusion = stereo == nil && !isTransmissionPrePass ? lighting.ambientOcclusion : nil
+        frame.ambientOcclusionStrength = ambientOcclusion?.strength ?? 0
         let bindings = FrameBindings(
             transmissionScene: transmissionScene ?? shaders.placeholderTexture,
             view: PBRViewUniforms(viewProjectionMatrices: viewPair(viewProjections), modelMatrix: modelMatrix, modelNormalMatrix: modelMatrix.inverse.transpose),
@@ -125,7 +127,8 @@ public struct PBRRenderer: Element {
             sampler: shaders.environmentSampler,
             shadow: lighting.shadows?.uniforms ?? PBRShadowUniforms(),
             shadowMap: lighting.shadows?.map ?? shaders.placeholderShadowMap,
-            shadowSampler: lighting.shadows?.sampler ?? shaders.shadowSampler
+            shadowSampler: lighting.shadows?.sampler ?? shaders.shadowSampler,
+            ambientOcclusion: ambientOcclusion?.texture ?? shaders.placeholderOcclusion
         )
 
         // Blended batches are sorted from between the eyes.
@@ -431,6 +434,7 @@ private struct FrameBindings {
     var shadow: PBRShadowUniforms
     var shadowMap: MTLTexture
     var shadowSampler: MTLSamplerState
+    var ambientOcclusion: MTLTexture
 
     func apply(to content: some Element) -> some Element {
         content
@@ -445,6 +449,7 @@ private struct FrameBindings {
             .parameter("shadow", value: shadow)
             .parameter("shadowMap", texture: shadowMap)
             .parameter("shadowSampler", samplerState: shadowSampler)
+            .parameter("ambientOcclusion", texture: ambientOcclusion)
     }
 }
 
@@ -465,6 +470,7 @@ struct PBRShaders {
     var environmentSampler: MTLSamplerState
     /// Bound as the shadow map when there is none; never sampled then.
     var placeholderShadowMap: MTLTexture
+    var placeholderOcclusion: MTLTexture
     var shadowSampler: MTLSamplerState
 
     // A static let is initialized once, thread-safely. Renderers are built on several threads. Immutable after creation.
@@ -511,6 +517,11 @@ struct PBRShaders {
                 descriptor.storageMode = .private
                 return descriptor
               }()),
+              let placeholderOcclusion = device.makeTexture(descriptor: {
+                let descriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .r8Unorm, width: 1, height: 1, mipmapped: false)
+                descriptor.usage = .shaderRead
+                return descriptor
+              }()),
               let shadowSampler = device.makeSamplerState(descriptor: {
                 let descriptor = MTLSamplerDescriptor()
                 descriptor.minFilter = .linear
@@ -539,6 +550,7 @@ struct PBRShaders {
             placeholderTexture: placeholderTexture,
             environmentSampler: sampler,
             placeholderShadowMap: placeholderShadowMap,
+            placeholderOcclusion: placeholderOcclusion,
             shadowSampler: shadowSampler
         )
     }

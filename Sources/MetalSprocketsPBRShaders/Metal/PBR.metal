@@ -359,7 +359,8 @@ namespace PBR {
         sampler environmentSampler,
         constant PBRShadowUniforms &shadow,
         depth2d_array<float> shadowMap,
-        sampler shadowSampler
+        sampler shadowSampler,
+        texture2d<float> ambientOcclusion
     );
 
     // Data (normals, factors, UVs) is shown as its value on screen: the sRGB target encodes linear output, so decode
@@ -390,7 +391,8 @@ namespace PBR {
         float diffuseTransmission,
         float clearcoat,
         float3 sheenColor,
-        float iridescence
+        float iridescence,
+        float screenOcclusion
     ) {
         switch (view) {
         case kPBRDebugViewBaseColor: return baseColor.rgb;
@@ -403,7 +405,7 @@ namespace PBR {
                 const float sample = materialResources.textures[kPBRTextureOcclusion].sample(materialResources.samplers[kPBRTextureOcclusion], slotUV(material.occlusion, in.texCoord0, in.texCoord1)).r;
                 occlusion = 1.0 + material.occlusionStrength * (sample - 1.0);
             }
-            return debugData(float3(occlusion));
+            return debugData(float3(occlusion * screenOcclusion));
         }
         case kPBRDebugViewEmissive: {
             float3 emissive = material.emissiveFactor * material.emissiveStrength;
@@ -462,10 +464,11 @@ namespace PBR {
         texture2d<float> brdfLookup [[texture(2)]],
         texture2d_array<float> transmissionScene [[texture(3)]],
         depth2d_array<float> shadowMap [[texture(4)]],
+        texture2d<float> ambientOcclusion [[texture(5)]],
         sampler environmentSampler [[sampler(0)]],
         sampler shadowSampler [[sampler(1)]]
     ) {
-        return withWireframe(shade(in, frontFacing, material, frame, lights, materialResources, environmentIrradiance, environmentSpecular, brdfLookup, transmissionScene, environmentSampler, shadow, shadowMap, shadowSampler), barycentric, frame, material);
+        return withWireframe(shade(in, frontFacing, material, frame, lights, materialResources, environmentIrradiance, environmentSpecular, brdfLookup, transmissionScene, environmentSampler, shadow, shadowMap, shadowSampler, ambientOcclusion), barycentric, frame, material);
     }
 
     // Merged static geometry: each draw record has its own material, selected by the record index the vertex stage
@@ -484,11 +487,12 @@ namespace PBR {
         texture2d<float> brdfLookup [[texture(2)]],
         texture2d_array<float> transmissionScene [[texture(3)]],
         depth2d_array<float> shadowMap [[texture(4)]],
+        texture2d<float> ambientOcclusion [[texture(5)]],
         sampler environmentSampler [[sampler(0)]],
         sampler shadowSampler [[sampler(1)]]
     ) {
         constant PBRMaterialUniforms &material = recordMaterials[in.record];
-        return withWireframe(shade(in, frontFacing, material, frame, lights, recordResources[in.record], environmentIrradiance, environmentSpecular, brdfLookup, transmissionScene, environmentSampler, shadow, shadowMap, shadowSampler), barycentric, frame, material);
+        return withWireframe(shade(in, frontFacing, material, frame, lights, recordResources[in.record], environmentIrradiance, environmentSpecular, brdfLookup, transmissionScene, environmentSampler, shadow, shadowMap, shadowSampler, ambientOcclusion), barycentric, frame, material);
     }
 
     float4 shade(
@@ -505,8 +509,16 @@ namespace PBR {
         sampler environmentSampler,
         constant PBRShadowUniforms &shadow,
         depth2d_array<float> shadowMap,
-        sampler shadowSampler
+        sampler shadowSampler,
+        texture2d<float> ambientOcclusion
     ) {
+        // Screen-space occlusion from the caller, one texel per render target pixel.
+        float screenOcclusion = 1.0;
+        if (frame.ambientOcclusionStrength > 0.0) {
+            const uint2 size = uint2(ambientOcclusion.get_width(), ambientOcclusion.get_height());
+            const float sample = ambientOcclusion.read(min(uint2(in.position.xy), size - 1)).r;
+            screenOcclusion = 1.0 + frame.ambientOcclusionStrength * (sample - 1.0);
+        }
         // The material's textures come from one argument buffer, so a draw binds them all at once.
         const texture2d<float> baseColorTexture = materialResources.textures[kPBRTextureBaseColor];
         const texture2d<float> metallicRoughnessTexture = materialResources.textures[kPBRTextureMetallicRoughness];
@@ -833,7 +845,7 @@ namespace PBR {
         float3 clearcoatSpecular = float3(0.0);
 
         if (frame.debugView != kPBRDebugViewLit) {
-            return float4(debugColor(frame.debugView, in, frontFacing, material, materialResources, baseColor, metallic, perceptualRoughness, normal, geometricNormal, tangent, bitangent, f0, transmission, diffuseTransmission, clearcoat, sheenColor, iridescence), 1.0);
+            return float4(debugColor(frame.debugView, in, frontFacing, material, materialResources, baseColor, metallic, perceptualRoughness, normal, geometricNormal, tangent, bitangent, f0, transmission, diffuseTransmission, clearcoat, sheenColor, iridescence, screenOcclusion), 1.0);
         }
 
         // KHR_materials_retroreflection (Minimal Retroreflective Microfacet model): the metal and dielectric BRDFs are
@@ -981,6 +993,9 @@ namespace PBR {
             ambientSheen *= occlusionFactor;
             ambientClearcoat *= occlusionFactor;
         }
+        ambient *= screenOcclusion;
+        ambientSheen *= screenOcclusion;
+        ambientClearcoat *= screenOcclusion;
         color += ambient;
 
         // Emissive

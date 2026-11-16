@@ -476,11 +476,13 @@ Downstream (SceneSprockets #355, #358, #359, #360) wants scene construction to b
 ## 24: No way to apply screen-space ambient occlusion to only the indirect lighting
 
 +++
-status: new
+status: closed
 priority: medium
 kind: feature
 labels: effort:m
 created: 2026-11-12T03:34:27Z
+updated: 2026-11-16T22:44:30Z
+closed: 2026-11-16T22:44:30Z
 +++
 
 The PBR shader has one source of ambient occlusion: the material's occlusion texture (`occlusionTexture`, scaled by `occlusionStrength`), which multiplies the image-based / indirect lighting.
