@@ -1,4 +1,5 @@
 import GeometryLite3D
+import Metal
 import MetalSprocketsPBRShaders
 import simd
 
@@ -43,8 +44,37 @@ struct PBRDrawPlan {
 
         var variant: VertexVariant
         var state: PBRPipelineState
-        var batches: [PBRModel.Batch]
+        var draws: [BatchDraw]
+        var batches: [PBRModel.Batch] { draws.map(\.batch) }
         var id: GroupID { GroupID(variant: variant, state: state) }
+    }
+
+    /// Instances `start ..< start + count` of a batch's instance inputs, drawn with one winding.
+    struct InstanceRange: Equatable {
+        var start: Int
+        var count: Int
+        /// Front faces are clockwise: the instances' transform, combined with the model matrix, mirrors.
+        var mirrored: Bool
+    }
+
+    /// One batch drawn by a per-batch pipeline: everything its draw binds and encodes this frame.
+    struct BatchDraw: Identifiable {
+        var batch: PBRModel.Batch
+        var id: Int { batch.id }
+        /// The batch's material, or its override.
+        var material: PBRMaterial
+        /// Animated and resolved for the primitive; points and lines are unlit.
+        var uniforms: PBRMaterialUniforms
+        var cullMode: MTLCullMode
+        var fillMode: MTLTriangleFillMode
+        /// Never empty.
+        var ranges: [InstanceRange]
+        /// Posed instances, unmirrored first, matching `ranges`; nil uses the batch's instance buffer.
+        var instances: [PBRInstance]?
+        /// This frame's joint matrices, for skinned batches.
+        var jointMatrices: [simd_float4x4]?
+        /// One weight per morph target (at least one), for batches with morph targets.
+        var morphWeights: [Float]?
     }
 
     var mergedStatic: MergedDraw?
@@ -63,7 +93,8 @@ struct PBRDrawPlan {
     ///   - transmissionAsCoverage: Draw transmissive opaque batches blended (premultiplied), sorted with the blended
     ///     ones, instead of as opaque (see `PBRFrameUniforms.transmissionAsCoverage`).
     ///   - writesBlendedDepth: Blended batches write depth whatever their render state says (stereo).
-    init(model: PBRModel, pose: PBRPose?, stage: PBRRenderer.TransmissionPrePassStage, viewProjections: [simd_float4x4], cameraPosition: SIMD3<Float>, modelMatrix: simd_float4x4, usesMergedGeometry: Bool, materialOverrides: PBRModel.MaterialOverrides = [:], phase: PBRRenderer.DrawPhase = .all, transmissionAsCoverage: Bool = false, writesBlendedDepth: Bool = false) {
+    ///   - drawsTrianglesOnly: Leave out point and line batches (a rasterization rate map allows only triangles).
+    init(model: PBRModel, pose: PBRPose?, stage: PBRRenderer.TransmissionPrePassStage, viewProjections: [simd_float4x4], cameraPosition: SIMD3<Float>, modelMatrix: simd_float4x4, usesMergedGeometry: Bool, materialOverrides: PBRModel.MaterialOverrides = [:], phase: PBRRenderer.DrawPhase = .all, transmissionAsCoverage: Bool = false, writesBlendedDepth: Bool = false, drawsTrianglesOnly: Bool = false) {
         var blendedOrder: [Int]?
         if case let .blended(order) = phase {
             blendedOrder = order
@@ -136,14 +167,19 @@ struct PBRDrawPlan {
 
         let mergedBatchIDs = [mergedStatic?.geometry, mergedTransmissive?.geometry, mergedSkinned?.geometry].reduce(into: Set<Int>()) { $0.formUnion($1?.batchIDs ?? []) }
         let opaque = drawsOpaque ? model.opaqueBatches.filter { included($0) && !mergedBatchIDs.contains($0.id) && !(transmissionAsCoverage && isTransmissive($0)) } : []
+        let modelIsMirrored = modelMatrix.isMirroring
+        func batchDraw(_ batch: PBRModel.Batch) -> BatchDraw? {
+            Self.batchDraw(batch, model: model, pose: pose, stage: stage, modelIsMirrored: modelIsMirrored, materialOverrides: materialOverrides, drawsTrianglesOnly: drawsTrianglesOnly)
+        }
+        let opaqueDraws = opaque.compactMap(batchDraw)
         opaqueGroups = VertexVariant.all.flatMap { variant in
             var groups: [OpaqueGroup] = []
-            for batch in opaque where VertexVariant(batch) == variant {
-                let state = pipelineState(batch, coverage: false)
+            for draw in opaqueDraws where VertexVariant(draw.batch) == variant {
+                let state = pipelineState(draw.batch, coverage: false)
                 if let index = groups.firstIndex(where: { $0.state == state }) {
-                    groups[index].batches.append(batch)
+                    groups[index].draws.append(draw)
                 } else {
-                    groups.append(OpaqueGroup(variant: variant, state: state, batches: [batch]))
+                    groups.append(OpaqueGroup(variant: variant, state: state, draws: [draw]))
                 }
             }
             return groups
@@ -169,16 +205,80 @@ struct PBRDrawPlan {
             }.map { candidates[$0] }
         }
         var runs: [BlendedRun] = []
-        for (batch, premultiplied) in candidates where included(batch) {
-            let variant = VertexVariant(batch)
-            let state = pipelineState(batch, coverage: premultiplied)
+        let blendedDraws = candidates.filter { included($0.batch) }.compactMap { candidate in
+            batchDraw(candidate.batch).map { (draw: $0, premultiplied: candidate.premultiplied) }
+        }
+        for (draw, premultiplied) in blendedDraws {
+            let variant = VertexVariant(draw.batch)
+            let state = pipelineState(draw.batch, coverage: premultiplied)
             if let last = runs.last, last.variant == variant, last.state == state, last.coverage == premultiplied {
-                runs[runs.count - 1].batches.append(batch)
+                runs[runs.count - 1].draws.append(draw)
             } else {
-                runs.append(BlendedRun(id: runs.count, variant: variant, state: state, coverage: premultiplied, batches: [batch]))
+                runs.append(BlendedRun(id: runs.count, variant: variant, state: state, coverage: premultiplied, draws: [draw]))
             }
         }
         blendedRuns = runs
+    }
+
+    /// How `batch` is drawn this frame, or nil when it draws nothing: a point or line batch that `drawsTrianglesOnly`
+    /// leaves out, or every instance hidden.
+    static func batchDraw(_ batch: PBRModel.Batch, model: PBRModel, pose: PBRPose?, stage: PBRRenderer.TransmissionPrePassStage, modelIsMirrored: Bool, materialOverrides: PBRModel.MaterialOverrides, drawsTrianglesOnly: Bool) -> BatchDraw? {
+        let primitive = batch.primitive
+        let isTriangles = primitive.primitiveType == .triangle
+        guard isTriangles || !drawsTrianglesOnly else { return nil }
+        let material = batch.material(overrides: materialOverrides)
+        // KHR_animation_pointer can animate material properties; the pose carries the result.
+        var uniforms = PBRMaterialUniforms.resolved(material, primitive: primitive, pose: pose)
+        if !isTriangles {
+            // Points and lines are drawn unlit in their base color, as three.js does.
+            uniforms.unlit = 1
+            uniforms.isPointOrLine = 1
+        }
+        let cullMode: MTLCullMode = !isTriangles ? .none : stage == .transmissiveBackFaces ? .front : material.doubleSided ? .none : .back
+        let fillMode: MTLTriangleFillMode = material.renderState.fillMode == .lines ? .lines : .fill
+
+        // Mirroring by both the node and the model matrix cancels out.
+        var instances: [PBRInstance]?
+        var jointMatrices: [simd_float4x4]?
+        let ranges: [InstanceRange]
+        if let skinIndex = batch.skinIndex {
+            // Skinned meshes follow their joints, and need joint matrices even without an animation. Hidden skinned
+            // meshes never get here: their bounds are empty, so the plan culls them.
+            jointMatrices = model.skins[skinIndex].jointMatrices(for: pose ?? model.restPose)
+            ranges = [InstanceRange(start: 0, count: batch.instanceCount, mirrored: batch.isMirrored != modelIsMirrored)]
+        } else if let pose {
+            // Hidden nodes' instances are left out. Posed instances are ordered unmirrored first, then mirrored (an
+            // animation can mirror some of a batch's nodes), and drawn as up to two ranges with their own winding.
+            let placements = zip(batch.nodeIndices, batch.instanceMatrices).filter { pose.isVisible($0.0) }.map { node, instanceMatrix in
+                pose.placement(node: node, instanceMatrix: instanceMatrix)
+            }
+            guard !placements.isEmpty else { return nil }
+            let unmirrored = placements.filter { !$0.isMirroring }
+            let mirrored = placements.filter(\.isMirroring)
+            instances = (unmirrored + mirrored).map { PBRInstance(worldMatrix: $0, normalMatrix: $0.inverse.transpose) }
+            var posedRanges: [InstanceRange] = []
+            if !unmirrored.isEmpty {
+                posedRanges.append(InstanceRange(start: 0, count: unmirrored.count, mirrored: modelIsMirrored))
+            }
+            if !mirrored.isEmpty {
+                posedRanges.append(InstanceRange(start: unmirrored.count, count: mirrored.count, mirrored: !modelIsMirrored))
+            }
+            ranges = posedRanges
+        } else {
+            ranges = [InstanceRange(start: 0, count: batch.instanceCount, mirrored: batch.isMirrored != modelIsMirrored)]
+        }
+
+        return BatchDraw(batch: batch, material: material, uniforms: uniforms, cullMode: cullMode, fillMode: fillMode, ranges: ranges, instances: instances, jointMatrices: jointMatrices, morphWeights: morphWeights(batch, model: model, pose: pose))
+    }
+
+    /// One weight per morph target from the pose, else the node's rest weights; nil without morph targets.
+    static func morphWeights(_ batch: PBRModel.Batch, model: PBRModel, pose: PBRPose?) -> [Float]? {
+        let targetCount = batch.primitive.morphTargetCount
+        guard targetCount > 0 else { return nil }
+        let node = batch.nodeIndices.first ?? 0
+        let poseWeights = pose.flatMap { $0.morphWeights.indices.contains(node) ? $0.morphWeights[node] : nil }
+        let weights = poseWeights ?? model.restMorphWeights(node: node)
+        return (0 ..< targetCount).map { $0 < weights.count ? weights[$0] : 0 }
     }
 }
 
@@ -191,7 +291,8 @@ struct BlendedRun: Identifiable {
     /// Transmissive opaque batches. Their batch IDs are opaque batch IDs, so they never share a run with blended
     /// batches.
     var coverage: Bool
-    var batches: [PBRModel.Batch]
+    var draws: [PBRDrawPlan.BatchDraw]
+    var batches: [PBRModel.Batch] { draws.map(\.batch) }
 }
 
 /// Which vertex shader a batch needs: skinned or instanced, with or without morph targets.

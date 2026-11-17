@@ -114,9 +114,7 @@ public struct PBRRenderer: Element {
 
         // Blended batches are sorted from between the eyes.
         let plan = drawPlan(cameraPosition: cameraPositions.reduce(.zero, +) / Float(cameraPositions.count))
-        // Skinned meshes need joint matrices even without an animation.
-        let skinPose = pose ?? (model.skins.isEmpty ? nil : model.restPose)
-        let context = PipelineContext(shaders: shaders, bindings: bindings, modelIsMirrored: modelMatrix.isMirroring, skinPose: skinPose)
+        let context = PipelineContext(shaders: shaders, bindings: bindings, modelIsMirrored: modelMatrix.isMirroring)
 
         return try Group {
             if transmissionScene != nil {
@@ -133,10 +131,10 @@ public struct PBRRenderer: Element {
                 try skinnedMergedPipeline(merged, context: context)
             }
             ForEach(plan.opaqueGroups) { group in
-                try pipeline("PBR Opaque\(group.variant.labelSuffix)\(group.state.labelSuffix)", group.batches, variant: group.variant, state: group.state, context: context)
+                try pipeline("PBR Opaque\(group.variant.labelSuffix)\(group.state.labelSuffix)", group.draws, variant: group.variant, state: group.state, context: context)
             }
             ForEach(plan.blendedRuns) { run in
-                try pipeline("PBR Blended\(run.variant.labelSuffix)\(run.state.labelSuffix)", run.batches, variant: run.variant, state: run.state, context: context)
+                try pipeline("PBR Blended\(run.variant.labelSuffix)\(run.state.labelSuffix)", run.draws, variant: run.variant, state: run.state, context: context)
             }
         }
         // Long-lived buffers and textures stay resident across frames, including the material textures that are only
@@ -148,31 +146,30 @@ public struct PBRRenderer: Element {
         var shaders: PBRShaders
         var bindings: PBRFrameBindings
         var modelIsMirrored: Bool
-        var skinPose: PBRPose?
     }
 
     @ElementBuilder
-    private func pipeline(_ label: String, _ batches: [PBRModel.Batch], variant: VertexVariant, state: PBRPipelineState, context: PipelineContext) throws -> some Element {
+    private func pipeline(_ label: String, _ draws: [PBRDrawPlan.BatchDraw], variant: VertexVariant, state: PBRPipelineState, context: PipelineContext) throws -> some Element {
         // Morphed and unmorphed draws are different element types; choosing per pipeline, not per draw, keeps the
         // per-draw tree small.
         if variant.morphed {
-            try pipeline(label, batches, variant: variant, state: state, context: context) { batch in
-                morphedDraw(batch, modelIsMirrored: context.modelIsMirrored, skinPose: context.skinPose)
+            try pipeline(label, draws, variant: variant, state: state, context: context) { draw in
+                morphedDraw(draw)
             }
         } else {
-            try pipeline(label, batches, variant: variant, state: state, context: context) { batch in
-                draw(batch, modelIsMirrored: context.modelIsMirrored, skinPose: context.skinPose)
+            try pipeline(label, draws, variant: variant, state: state, context: context) { draw in
+                self.draw(draw)
             }
         }
     }
 
     @ElementBuilder
-    private func pipeline<Content: Element>(_ label: String, _ batches: [PBRModel.Batch], variant: VertexVariant, state: PBRPipelineState, context: PipelineContext, draw: @escaping (PBRModel.Batch) -> Content) throws -> some Element {
+    private func pipeline<Content: Element>(_ label: String, _ draws: [PBRDrawPlan.BatchDraw], variant: VertexVariant, state: PBRPipelineState, context: PipelineContext, draw: @escaping (PBRDrawPlan.BatchDraw) -> Content) throws -> some Element {
         // visionOS shows our color only where depth is written. In stereo, blended surfaces write depth so glass over
         // passthrough stays visible (see PBRPipelineState). They draw back to front, so nearer ones still pass.
         try RenderPipeline(label: label, vertexShader: context.shaders.vertexShader(variant), fragmentShader: context.shaders.fragment) {
-            context.bindings.apply(to: ForEach(batches) { batch in
-                draw(batch)
+            context.bindings.apply(to: ForEach(draws) { batchDraw in
+                draw(batchDraw)
             }
             .parameter("view", value: context.bindings.view))
         }
@@ -185,7 +182,7 @@ public struct PBRRenderer: Element {
 
     /// What this renderer draws this frame; see ``PBRDrawPlan``.
     func drawPlan(cameraPosition: SIMD3<Float>) -> PBRDrawPlan {
-        PBRDrawPlan(model: model, pose: pose, stage: prePassStage, viewProjections: viewProjections, cameraPosition: cameraPosition, modelMatrix: modelMatrix, usesMergedGeometry: usesMergedGeometry, materialOverrides: materialOverrides, phase: phase, transmissionAsCoverage: transmissionAsCoverage, writesBlendedDepth: writesBlendedDepth)
+        PBRDrawPlan(model: model, pose: pose, stage: prePassStage, viewProjections: viewProjections, cameraPosition: cameraPosition, modelMatrix: modelMatrix, usesMergedGeometry: usesMergedGeometry, materialOverrides: materialOverrides, phase: phase, transmissionAsCoverage: transmissionAsCoverage, writesBlendedDepth: writesBlendedDepth, drawsTrianglesOnly: drawsTrianglesOnly)
     }
 
     /// One Metal draw per visible record of `merged`, all in one element.
@@ -249,73 +246,31 @@ public struct PBRRenderer: Element {
         .depthCompare(function: depthFunction, writes: true)
     }
 
-    /// ``draw(_:modelIsMirrored:skinPose:)`` plus the morph target inputs, for batches with morph targets.
-    func morphedDraw(_ batch: PBRModel.Batch, modelIsMirrored: Bool, skinPose: PBRPose?) -> some Element {
-        let primitive = batch.primitive
-        // Weights come from the pose, else the node's rest weights; shaders read one per target.
-        let node = batch.nodeIndices.first ?? 0
-        let poseWeights = pose.flatMap { $0.morphWeights.indices.contains(node) ? $0.morphWeights[node] : nil }
-        let weights = poseWeights ?? model.restMorphWeights(node: node)
-        let targetCount = primitive.morphTargetCount
-        let morphWeights = (0 ..< max(targetCount, 1)).map { $0 < weights.count ? weights[$0] : 0 }
-        let morph = PBRMorphUniforms(targetCount: UInt32(targetCount), vertexCount: UInt32(primitive.vertexCount))
-        return draw(batch, modelIsMirrored: modelIsMirrored, skinPose: skinPose)
+    /// ``draw(_:)`` plus the morph target inputs, for batches with morph targets.
+    func morphedDraw(_ batchDraw: PBRDrawPlan.BatchDraw) -> some Element {
+        let primitive = batchDraw.batch.primitive
+        let morph = PBRMorphUniforms(targetCount: UInt32(primitive.morphTargetCount), vertexCount: UInt32(primitive.vertexCount))
+        return draw(batchDraw)
             .parameter("morph", value: morph)
             .parameter("morphDeltas", buffer: primitive.morphBuffer!)
-            .parameter("morphWeights", values: morphWeights)
+            .parameter("morphWeights", values: batchDraw.morphWeights ?? [0])
     }
 
-    /// One instanced draw for every instance in `batch`.
-    func draw(_ batch: PBRModel.Batch, modelIsMirrored: Bool, skinPose: PBRPose?) -> some Element {
-        let primitive = batch.primitive
-        let material = batch.material(overrides: materialOverrides)
+    /// One instanced draw per range of `batchDraw`.
+    func draw(_ batchDraw: PBRDrawPlan.BatchDraw) -> some Element {
+        let primitive = batchDraw.batch.primitive
         // The primitive's range of the model's shared buffers. Vertex buffers are bound at the primitive's first vertex
         // (baseVertex 0), so vertex_id stays local, as the per-primitive morph buffer expects.
         let geometry = primitive.geometry
         let indexBuffer = geometry.indexBuffer
         let indexCount = primitive.indexCount
         let indexOffset = UInt64(primitive.indexStart * MemoryLayout<UInt32>.stride)
-        // Mirroring by both the node and the model matrix cancels out.
-        // Posed instances are ordered unmirrored first, then mirrored (an animation can mirror some of a batch's
-        // nodes), and drawn as up to two ranges with their own winding. Skinned meshes follow their joints instead.
-        let posedNodes: [(node: Int, world: simd_float4x4)]?
-        let ranges: [(start: Int, count: Int, mirrored: Bool)]
-        if let pose, batch.skinIndex == nil {
-            // Hidden nodes' instances are left out.
-            let nodes = zip(batch.nodeIndices, batch.instanceMatrices).filter { pose.isVisible($0.0) }.map { node, instanceMatrix in
-                (node: node, world: pose.placement(node: node, instanceMatrix: instanceMatrix))
-            }
-            let unmirrored = nodes.filter { !$0.world.isMirroring }
-            let mirroredNodes = nodes.filter(\.world.isMirroring)
-            // Every instance hidden: no draws, and the batch's own buffer is bound (an empty array cannot be).
-            posedNodes = nodes.isEmpty ? nil : unmirrored + mirroredNodes
-            ranges = [(0, unmirrored.count, modelIsMirrored), (unmirrored.count, mirroredNodes.count, !modelIsMirrored)].filter { $0.count > 0 } // swiftlint:disable:this empty_count (a tuple's count field)
-        } else {
-            // Hidden skinned meshes never get here: their bounds are empty, so the draw plan culls them.
-            posedNodes = nil
-            ranges = [(0, batch.instanceCount, batch.isMirrored != modelIsMirrored)]
-        }
-
-        // KHR_animation_pointer can animate material properties; the pose carries the result.
-        var uniforms = PBRMaterialUniforms.resolved(material, primitive: primitive, pose: pose)
         let primitiveType = primitive.primitiveType
-        let isTriangles = primitiveType == .triangle
-        if !isTriangles {
-            // Points and lines are drawn unlit in their base color, as three.js does.
-            uniforms.unlit = 1
-            uniforms.isPointOrLine = 1
-        }
-        let fillMode: MTLTriangleFillMode = material.renderState.fillMode == .lines ? .lines : .fill
-        let cullMode: MTLCullMode = !isTriangles ? .none : prePassStage == .transmissiveBackFaces ? .front : material.doubleSided ? .none : .back
-
-        // A rasterization rate map (visionOS foveation) only allows triangles; point and line primitives are skipped.
-        let skipsDraw = drawsTrianglesOnly && !isTriangles
         let draw = Draw { encoder in
-            guard !skipsDraw else { return }
             stereo?.configure(encoder)
-            encoder.setCullMode(cullMode)
-            encoder.setTriangleFillMode(fillMode)
-            for range in ranges {
+            encoder.setCullMode(batchDraw.cullMode)
+            encoder.setTriangleFillMode(batchDraw.fillMode)
+            for range in batchDraw.ranges {
                 // glTF front faces are counter-clockwise; a mirroring transform flips that.
                 encoder.setFrontFacing(range.mirrored ? .clockwise : .counterClockwise)
                 encoder.drawIndexedPrimitives(
@@ -336,11 +291,11 @@ public struct PBRRenderer: Element {
         // model keeps it alive.
         .vertexBuffer(geometry.vertexBuffer, index: 0, offset: primitive.baseVertex * MemoryLayout<PBRVertex>.stride)
 
-        return instances(of: batch, posedNodes: posedNodes, skinPose: skinPose, on: draw)
-            .parameter("material", value: uniforms)
+        return instances(of: batchDraw, on: draw)
+            .parameter("material", value: batchDraw.uniforms)
             // Every material texture and sampler, through one argument buffer. The textures it references are kept
             // resident by the model's resource collection.
-            .parameter("materialResources", buffer: material.resourceBuffer)
+            .parameter("materialResources", buffer: batchDraw.material.resourceBuffer)
     }
 }
 
@@ -376,17 +331,18 @@ extension PBRRenderer {
         }
     }
 
-    /// Binds joint matrices for skinned batches; otherwise the rest-pose instance buffer or per-frame transforms from `pose`.
+    /// Binds joint matrices for skinned batches; otherwise posed instances, or the batch's rest-pose instance buffer.
     @ElementBuilder
-    func instances(of batch: PBRModel.Batch, posedNodes: [(node: Int, world: simd_float4x4)]?, skinPose: PBRPose?, on content: some Element) -> some Element {
-        if let skinIndex = batch.skinIndex, let skinBuffer = batch.primitive.geometry.skinBuffer, let skinPose {
+    func instances(of batchDraw: PBRDrawPlan.BatchDraw, on content: some Element) -> some Element {
+        let primitive = batchDraw.batch.primitive
+        if let jointMatrices = batchDraw.jointMatrices, let skinBuffer = primitive.geometry.skinBuffer {
             content
-                .vertexBuffer(skinBuffer, index: PBRModel.skinBufferIndex, offset: batch.primitive.baseVertex * MemoryLayout<PBRSkinVertex>.stride)
-                .parameter("jointMatrices", values: model.skins[skinIndex].jointMatrices(for: skinPose))
-        } else if let posedNodes {
-            content.parameter("instances", values: posedNodes.map { PBRInstance(worldMatrix: $0.world, normalMatrix: $0.world.inverse.transpose) })
+                .vertexBuffer(skinBuffer, index: PBRModel.skinBufferIndex, offset: primitive.baseVertex * MemoryLayout<PBRSkinVertex>.stride)
+                .parameter("jointMatrices", values: jointMatrices)
+        } else if let instances = batchDraw.instances {
+            content.parameter("instances", values: instances)
         } else {
-            content.parameter("instances", buffer: batch.instanceBuffer)
+            content.parameter("instances", buffer: batchDraw.batch.instanceBuffer)
         }
     }
 }

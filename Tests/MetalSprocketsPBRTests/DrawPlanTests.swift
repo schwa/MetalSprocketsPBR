@@ -54,9 +54,13 @@ struct DrawPlanTests {
         models = try TestModels()
     }
 
-    func plan(_ model: PBRModel, pose: PBRPose? = nil, stage: PBRRenderer.TransmissionPrePassStage = .none, eye: SIMD3<Float> = [0, 0, 10], target: SIMD3<Float> = .zero, merging: Bool = true, overrides: PBRModel.MaterialOverrides = [:]) -> PBRDrawPlan {
+    func plan(_ model: PBRModel, pose: PBRPose? = nil, stage: PBRRenderer.TransmissionPrePassStage = .none, eye: SIMD3<Float> = [0, 0, 10], target: SIMD3<Float> = .zero, merging: Bool = true, overrides: PBRModel.MaterialOverrides = [:], modelMatrix: simd_float4x4 = matrix_identity_float4x4, trianglesOnly: Bool = false) -> PBRDrawPlan {
         let view = LookAt(position: eye, target: target, up: [0, 1, 0]).viewMatrix
-        return PBRDrawPlan(model: model, pose: pose, stage: stage, viewProjections: [projection * view], cameraPosition: eye, modelMatrix: matrix_identity_float4x4, usesMergedGeometry: merging, materialOverrides: overrides)
+        return PBRDrawPlan(model: model, pose: pose, stage: stage, viewProjections: [projection * view], cameraPosition: eye, modelMatrix: modelMatrix, usesMergedGeometry: merging, materialOverrides: overrides, drawsTrianglesOnly: trianglesOnly)
+    }
+
+    func batchDraws(_ plan: PBRDrawPlan) -> [PBRDrawPlan.BatchDraw] {
+        plan.opaqueGroups.flatMap(\.draws) + plan.blendedRuns.flatMap(\.draws)
     }
 
     func perBatchCount(_ plan: PBRDrawPlan) -> Int {
@@ -178,6 +182,48 @@ struct DrawPlanTests {
         let batches = backFaces.opaqueGroups.flatMap(\.batches)
         // A key path fails to compile inside #expect (rethrows expansion).
         #expect(batches.allSatisfy { $0.material.isTransmissive }) // swiftlint:disable:this prefer_key_path
+    }
+
+    @Test func posedBatchesSplitInstancesByWinding() throws {
+        let material = try models.material()
+        let worldMatrices = [simd_float4x4(translation: [-1, 0, 0]), simd_float4x4(translation: [1, 0, 0])]
+        var builder = PBRModelBuilder(device: models.device, restPose: PBRPose(worldMatrices: worldMatrices))
+        builder.addInstance(models.quad, material: material, node: 0)
+        builder.addInstance(models.quad, material: material, node: 1)
+        let model = try builder.build()
+        let pose = PBRPose(worldMatrices: [simd_float4x4(translation: [-1, 0, 0]) * simd_float4x4(scale: [-1, 1, 1]), worldMatrices[1]])
+        let draw = try #require(batchDraws(plan(model, pose: pose, merging: false)).first)
+        #expect(draw.ranges == [.init(start: 0, count: 1, mirrored: false), .init(start: 1, count: 1, mirrored: true)])
+        let instanceX = draw.instances?.map(\.worldMatrix.columns.3.x)
+        #expect(instanceX == [1, -1], "Unmirrored instances come first")
+        // A mirroring model matrix flips every range.
+        let flipped = try #require(batchDraws(plan(model, pose: pose, merging: false, modelMatrix: simd_float4x4(scale: [-1, 1, 1]))).first)
+        #expect(flipped.ranges.map(\.mirrored) == [true, false])
+        let hidden = PBRPose(worldMatrices: worldMatrices, visibility: [false, true])
+        #expect(batchDraws(plan(model, pose: hidden, merging: false)).first?.ranges == [.init(start: 0, count: 1, mirrored: false)])
+    }
+
+    @Test func cullModeFollowsStageAndSidedness() throws {
+        let model = try models.model([([0, 0, -1], models.material()), ([0, 0, 1], models.material(transmission: 1, doubleSided: true))])
+        #expect(Set(batchDraws(plan(model, merging: false)).map(\.cullMode)) == [.back, .none])
+        #expect(batchDraws(plan(model, stage: .transmissiveBackFaces, merging: false)).map(\.cullMode) == [.front])
+    }
+
+    @Test func pointsAreUnlitAndLeftOutWhenOnlyTrianglesDraw() throws {
+        var geometry = PBRGeometryBuilder(device: models.device)
+        try geometry.add(attributes: [.init(semantic: .position, format: .float3, values: [SIMD3<Float>](repeating: .zero, count: 3))], indices: [0, 1, 2], primitiveType: .point)
+        let points = try geometry.build()[0]
+        var builder = PBRModelBuilder(device: models.device, restPose: PBRPose(worldMatrices: [matrix_identity_float4x4, matrix_identity_float4x4]))
+        builder.addInstance(points, material: try models.material(), node: 0)
+        builder.addInstance(models.quad, material: try models.material(), node: 1)
+        let model = try builder.build()
+        let pointDraw = batchDraws(plan(model, merging: false)).first { $0.batch.primitive.primitiveType == .point }
+        #expect(pointDraw?.uniforms.unlit == 1 && pointDraw?.uniforms.isPointOrLine == 1 && pointDraw?.cullMode == MTLCullMode.none)
+        let trianglesOnly = plan(model, merging: false, trianglesOnly: true)
+        #expect(batchDraws(trianglesOnly).map(\.batch.primitive.primitiveType) == [.triangle])
+        var pointsBuilder = PBRModelBuilder(device: models.device, restPose: PBRPose(worldMatrices: [matrix_identity_float4x4]))
+        pointsBuilder.addInstance(points, material: try models.material(), node: 0)
+        #expect(plan(try pointsBuilder.build(), merging: false, trianglesOnly: true).opaqueGroups.isEmpty, "No pipeline for points alone")
     }
 
     @Test func ordersBlendedBatchesBackToFront() throws {

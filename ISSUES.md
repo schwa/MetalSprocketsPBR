@@ -396,9 +396,9 @@ Follow-up to #18.
 status: open
 priority: low
 kind: feature
-labels: effort:m, area:shading
+labels: effort:m, area:shading, deferred
 created: 2026-10-23T13:52:04Z
-updated: 2026-10-24T12:00:49Z
+updated: 2026-11-17T13:27:29Z
 +++
 
 RoboCloth (https://github.com/theialab/robocloth, local copy in ~/Projects/Vendor) has 500 captured cloth materials. They are released as neural BRDFs (a 16-channel latent texture plus a shared MLP) and as a Disney PBR fit.
@@ -580,12 +580,13 @@ No known race; found by code review.
 ## 29: Per-batch draw decisions are made in PBRRenderer, not PBRDrawPlan
 
 +++
-status: open
+status: closed
 priority: medium
 kind: task
 labels: architecture, refactor, effort:l, area:rendering
 created: 2026-11-17T13:26:30Z
-updated: 2026-11-17T13:27:19Z
+updated: 2026-11-17T13:31:27Z
+closed: 2026-11-17T13:31:27Z
 +++
 
 PBRDrawPlan says planning is pure and the renderer only turns a plan into elements. That holds for merged draws. For per-batch draws the plan only groups batches; PBRRenderer.draw, morphedDraw and instances(of:) decide the rest inside element code:
@@ -606,6 +607,7 @@ Constraint: no public API changes.
 Found by code review; nothing here was built or run.
 
 - `2026-11-17T13:27:19Z`: Related: #30 (frame composition builds on the per-batch plan).
+- `2026-11-17T13:31:27Z`: PBRDrawPlan now builds a BatchDraw per per-batch draw (material, resolved uniforms, cull/fill mode, winding ranges, posed instances, joint matrices, morph weights); PBRRenderer only encodes it. drawsTrianglesOnly is a plan input, so point/line batches are left out and groups/runs holding only them get no pipeline (confirms the suspected empty pipeline). Batches with every instance hidden are dropped from the plan. New DrawPlanTests cover winding ranges, cull modes and the triangles-only filter.
 
 ---
 
