@@ -781,11 +781,13 @@ Avoiding this needs a public API change (for example an async way to get or warm
 ## 36: PBRMaterial cannot be changed safely while another thread renders with it
 
 +++
-status: new
+status: closed
 priority: medium
 kind: bug
 labels: area:api
 created: 2026-11-17T19:17:12Z
+updated: 2026-11-17T19:23:00Z
+closed: 2026-11-17T19:23:00Z
 +++
 
 PBRMaterial is a class with public vars (uniforms, renderState, textureTransforms). A render thread reads them every frame while drawing. An app that changes them on another thread (for example material.uniforms.roughnessFactor = x on the main thread) is a data race. There is no supported, race-free way to change one parameter of a live material.

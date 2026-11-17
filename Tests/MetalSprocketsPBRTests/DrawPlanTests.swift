@@ -86,10 +86,8 @@ struct DrawPlanTests {
 
     @Test func customRenderStatesSplitPipelinesAndSkipMerging() throws {
         let plain = try models.material(color: [1, 0, 0, 1])
-        let wire = try models.material(color: [0, 1, 0, 1])
-        wire.renderState.fillMode = .lines
-        let additive = try models.material(color: [0, 0, 1, 1])
-        additive.renderState.blendMode = .additive
+        let wire = try models.material(color: [0, 1, 0, 1]).with(renderState: PBRRenderState(fillMode: .lines))
+        let additive = try models.material(color: [0, 0, 1, 1]).with(renderState: PBRRenderState(blendMode: .additive))
         let model = try models.model([([-1, 0, 0], plain), ([-1, 1, 0], try models.material(color: [1, 1, 0, 1])), ([1, 0, 0], wire), (.zero, additive)])
         #expect(model.merged?.records.count == 2, "Only the default render state merges")
         #expect(model.blendedBatches.count == 1, "A blend mode makes an opaque alpha mode blended")
@@ -105,13 +103,12 @@ struct DrawPlanTests {
         let material = try models.material(color: [1, 0, 0, 1], blended: true)
         #expect(PBRPipelineState(material, writesBlendedDepth: false).depthWrite == false)
         #expect(PBRPipelineState(material, writesBlendedDepth: true).depthWrite == true, "Stereo writes blended depth")
-        material.renderState.depthWrite = .enabled
-        #expect(PBRPipelineState(material, writesBlendedDepth: false).depthWrite == true)
-        material.renderState.depthWrite = .disabled
-        #expect(PBRPipelineState(material, writesBlendedDepth: true).depthWrite == true, "Stereo wins")
-        material.renderState.blendMode = .opaque
-        #expect(!material.isBlended)
-        #expect(PBRPipelineState(material, writesBlendedDepth: true).depthWrite == false)
+        #expect(PBRPipelineState(material.with(renderState: PBRRenderState(depthWrite: .enabled)), writesBlendedDepth: false).depthWrite == true)
+        let noDepth = material.with(renderState: PBRRenderState(depthWrite: .disabled))
+        #expect(PBRPipelineState(noDepth, writesBlendedDepth: true).depthWrite == true, "Stereo wins")
+        let opaque = material.with(renderState: PBRRenderState(blendMode: .opaque, depthWrite: .disabled))
+        #expect(!opaque.isBlended)
+        #expect(PBRPipelineState(opaque, writesBlendedDepth: true).depthWrite == false)
     }
 
     @Test func cullsOutsideTheView() throws {

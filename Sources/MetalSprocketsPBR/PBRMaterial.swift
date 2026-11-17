@@ -46,9 +46,13 @@ public extension PBRMaterialUniforms {
 }
 
 /// A PBR material resolved into shader uniforms, textures and samplers.
-public final class PBRMaterial {
+///
+/// Immutable, so a render thread can draw with it while other threads read it. To change a live material, set
+/// ``PBRPose/materialUniforms`` each frame, or draw a copy made with ``with(uniforms:renderState:textureTransforms:)``
+/// through ``PBRModel/MaterialOverrides``.
+public final class PBRMaterial: @unchecked Sendable {
     public struct Binding {
-        public var texture: MTLTexture
+        public let texture: MTLTexture
         public let sampler: MTLSamplerState
         // Kept because MTLSamplerState cannot be read back (e.g. to save filters and address modes).
         public let samplerDescriptor: MTLSamplerDescriptor
@@ -89,11 +93,11 @@ public final class PBRMaterial {
         }
     }
 
-    public var name: String?
-    public var uniforms: PBRMaterialUniforms
-    public var doubleSided: Bool
-    /// Set before building the model: it decides which batches merge and which are blended.
-    public var renderState = PBRRenderState()
+    public let name: String?
+    public let uniforms: PBRMaterialUniforms
+    public let doubleSided: Bool
+    /// Decides which batches merge and which are blended.
+    public let renderState: PBRRenderState
     /// Every material texture and its sampler, in `PBRMaterialTextureIndex` order. Slots the material does not use
     /// hold a placeholder (see ``placeholderBinding(device:)``).
     public let textureBindings: [Binding]
@@ -102,7 +106,7 @@ public final class PBRMaterial {
     public let resourceBuffer: MTLBuffer
     /// Animatable texture transforms, keyed by the producer's name for the texture (glTF: its path below
     /// `/materials/N/`).
-    public var textureTransforms: [String: TextureTransform] = [:]
+    public let textureTransforms: [String: TextureTransform]
 
     public subscript(texture index: PBRMaterialTextureIndex) -> Binding {
         textureBindings[Int(index.rawValue)]
@@ -119,11 +123,13 @@ public final class PBRMaterial {
 
     /// `textureBindings` must have one binding per `PBRMaterialTextureIndex` (`kPBRMaterialTextureCount`); enable
     /// the matching `uniforms` slots for the ones that are real textures.
-    public init(name: String? = nil, uniforms: PBRMaterialUniforms, doubleSided: Bool = false, textureBindings: [Binding], device: MTLDevice) throws {
+    public init(name: String? = nil, uniforms: PBRMaterialUniforms, doubleSided: Bool = false, renderState: PBRRenderState = PBRRenderState(), textureTransforms: [String: TextureTransform] = [:], textureBindings: [Binding], device: MTLDevice) throws {
         precondition(textureBindings.count == Int(kPBRMaterialTextureCount.rawValue), "One texture binding per PBRMaterialTextureIndex")
         self.name = name
         self.uniforms = uniforms
         self.doubleSided = doubleSided
+        self.renderState = renderState
+        self.textureTransforms = textureTransforms
         self.textureBindings = textureBindings
         let handles = textureBindings.map(\.texture.gpuResourceID._impl) + textureBindings.map(\.sampler.gpuResourceID._impl)
         assert(handles.count * MemoryLayout<UInt64>.stride == MemoryLayout<PBRMaterialResources>.size)
@@ -135,8 +141,23 @@ public final class PBRMaterial {
     }
 
     /// A material with every texture slot holding `placeholder` (disabled in the uniforms): factors only.
-    public convenience init(name: String? = nil, uniforms: PBRMaterialUniforms, doubleSided: Bool = false, placeholder: Binding, device: MTLDevice) throws {
-        try self.init(name: name, uniforms: uniforms, doubleSided: doubleSided, textureBindings: Array(repeating: placeholder, count: Int(kPBRMaterialTextureCount.rawValue)), device: device)
+    public convenience init(name: String? = nil, uniforms: PBRMaterialUniforms, doubleSided: Bool = false, renderState: PBRRenderState = PBRRenderState(), placeholder: Binding, device: MTLDevice) throws {
+        try self.init(name: name, uniforms: uniforms, doubleSided: doubleSided, renderState: renderState, textureBindings: Array(repeating: placeholder, count: Int(kPBRMaterialTextureCount.rawValue)), device: device)
+    }
+
+    private init(copying material: PBRMaterial, uniforms: PBRMaterialUniforms, renderState: PBRRenderState, textureTransforms: [String: TextureTransform]) {
+        name = material.name
+        self.uniforms = uniforms
+        doubleSided = material.doubleSided
+        self.renderState = renderState
+        self.textureTransforms = textureTransforms
+        textureBindings = material.textureBindings
+        resourceBuffer = material.resourceBuffer
+    }
+
+    /// A new material sharing this one's textures and GPU resources, with the given values replaced.
+    public func with(uniforms: PBRMaterialUniforms? = nil, renderState: PBRRenderState? = nil, textureTransforms: [String: TextureTransform]? = nil) -> PBRMaterial {
+        PBRMaterial(copying: self, uniforms: uniforms ?? self.uniforms, renderState: renderState ?? self.renderState, textureTransforms: textureTransforms ?? self.textureTransforms)
     }
 
     /// A 1x1 white texture with a repeating linear sampler, for unused texture slots.

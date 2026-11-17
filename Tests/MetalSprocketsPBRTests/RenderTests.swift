@@ -213,9 +213,7 @@ struct RenderTests {
     }
 
     func material(color: SIMD4<Float>, _ renderState: PBRRenderState) throws -> PBRMaterial {
-        let material = try models.material(color: color)
-        material.renderState = renderState
-        return material
+        try models.material(color: color).with(renderState: renderState)
     }
 
     @Test
