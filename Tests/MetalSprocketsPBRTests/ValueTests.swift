@@ -85,5 +85,12 @@ struct ValueTests {
         #expect(stereo.cameraPositions == [[-1, 0, 0], [1, 0, 0]])
         #expect(viewPair([1]) == (1, 1))
         #expect(viewPair([1, 2]) == (1, 2))
+
+        let views = PBRViews(viewMatrix: matrix_identity_float4x4, projectionMatrix: matrix_identity_float4x4, stereo: stereo)
+        #expect(views.isStereo && views.viewProjections == [left, right])
+        #expect(views.centerPosition == .zero, "Between the eyes")
+        #expect(views.inverseRotationViewProjections == [matrix_identity_float4x4, matrix_identity_float4x4], "Translation is dropped")
+        let mono = PBRViews(viewMatrix: left, projectionMatrix: matrix_identity_float4x4, stereo: nil)
+        #expect(!mono.isStereo && mono.cameraPositions == [[-1, 0, 0]] && mono.centerPosition == [-1, 0, 0])
     }
 }

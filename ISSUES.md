@@ -656,12 +656,13 @@ Not done here: per-renderer PBRFrameBindings rebuilds, filed as a follow-up. PBR
 ## 31: Mono and stereo views are two representations that every element resolves itself
 
 +++
-status: open
+status: closed
 priority: low
 kind: task
 labels: architecture, refactor, effort:m, area:rendering
 created: 2026-11-17T13:26:31Z
-updated: 2026-11-17T13:27:19Z
+updated: 2026-11-17T13:38:23Z
+closed: 2026-11-17T13:38:23Z
 +++
 
 PBRRenderer and PBREnvironmentBackground each hold viewMatrix and projectionMatrix plus an optional stereo, and each resolves 'stereo?.x ?? [mono]' itself (viewProjections, cameraPositions, inverse view-projections). PBRTransmissionPass and PBRImmersiveScene do the same through renderer.stereo.
@@ -674,6 +675,7 @@ Constraint: no public API changes.
 Found by code review; nothing here was built or run.
 
 - `2026-11-17T13:27:19Z`: Related: #30.
+- `2026-11-17T13:38:23Z`: Added internal PBRViews (mono or stereo view and projection matrices, view-projections, camera positions, center between the eyes, background inverse view-projections). PBRRenderer, PBREnvironmentBackground, PBRScene and PBRImmersiveScene use it instead of resolving 'stereo ?? mono' themselves. The stereo-dependent policies are named properties with their reasons: transmissionAsCoverage, writesBlendedDepth, and new usesAmbientOcclusion. Public stereo/viewMatrix/projectionMatrix properties unchanged. PBRImmersiveScene (visionOS only) not compiled.
 
 ---
 

@@ -50,7 +50,6 @@ public struct PBRImmersiveScene: Element {
             let stereo = stereo
             var background = PBREnvironmentBackground(lighting: lighting, viewMatrix: stereo.viewMatrices[0], projectionMatrix: stereo.projectionMatrices[0])
             background.stereo = stereo
-            let cameraPositions = stereo.cameraPositions
             let viewCount = context.viewCount
             // Debug views do not show what is behind glass, so they skip the pre-pass. The target matches an eye's
             // view in the compositor's texture.
@@ -65,7 +64,7 @@ public struct PBRImmersiveScene: Element {
                 renderer.debugView = debugView
                 return renderer
             }
-            let renderers = PBRScene.renderers(items, cameraPosition: cameraPositions.reduce(.zero, +) / Float(cameraPositions.count), make: renderer)
+            let renderers = PBRScene.renderers(items, cameraPosition: PBRViews(viewMatrix: stereo.viewMatrices[0], projectionMatrix: stereo.projectionMatrices[0], stereo: stereo).centerPosition, make: renderer)
             return try Group {
                 if let target {
                     // Not the compositor's pass: without this, its render pass would end through the compositor's

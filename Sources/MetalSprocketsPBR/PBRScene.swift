@@ -191,7 +191,7 @@ public struct PBRScene: Element {
     /// One model draws everything with one renderer. Several draw their opaque batches first, one renderer each,
     /// then every blended batch in one back-to-front order, a renderer for each run of one model's batches.
     private func mainRenderers(lighting: PBRLighting, target: PBRTransmissionTarget?) -> [PBRRenderer] {
-        Self.renderers(items, cameraPosition: viewMatrix.inverse.columns.3.xyz) { renderer($0, lighting: lighting, target: target) }
+        Self.renderers(items, cameraPosition: PBRViews(viewMatrix: viewMatrix, projectionMatrix: projectionMatrix, stereo: nil).centerPosition) { renderer($0, lighting: lighting, target: target) }
     }
 
     /// Whether `items` draw a transmission pre-pass. Debug views do not show what is behind glass, so they skip it.

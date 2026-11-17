@@ -36,16 +36,18 @@ public struct PBRRenderer: Element {
     /// triangles, and Metal validation aborts on anything else.
     public var drawsTrianglesOnly = false
 
+    var views: PBRViews { PBRViews(viewMatrix: viewMatrix, projectionMatrix: projectionMatrix, stereo: stereo) }
     /// The view-projection of every view drawn.
-    var viewProjections: [simd_float4x4] { stereo?.viewProjections ?? [projectionMatrix * viewMatrix] }
-    var cameraPositions: [SIMD3<Float>] { stereo?.cameraPositions ?? [viewMatrix.inverse.columns.3.xyz] }
+    var viewProjections: [simd_float4x4] { views.viewProjections }
     /// In stereo, transmissive surfaces draw as coverage: they blend over what is behind them (passthrough or the
     /// environment), so the room shows through glass. With a stereo transmission target, they also show the refracted
     /// model where the target alpha is not zero.
-    var transmissionAsCoverage: Bool { stereo != nil && !isTransmissionPrePass }
+    var transmissionAsCoverage: Bool { views.isStereo && !isTransmissionPrePass }
     /// Whether blended surfaces write depth: in stereo (visionOS), where the compositor needs depth for every pixel we
     /// draw.
-    var writesBlendedDepth: Bool { stereo != nil }
+    var writesBlendedDepth: Bool { views.isStereo }
+    /// Screen-space occlusion is one texture for one view, so stereo and the pre-pass's own target draw without it.
+    var usesAmbientOcclusion: Bool { !views.isStereo && !isTransmissionPrePass }
     /// Depth is reversed (near 1, far 0), so nearer is greater.
     var depthFunction: MTLCompareFunction { .greater }
     /// Draw eligible batches from merged buffers. Tests turn it off to compare against per-batch drawing.
@@ -100,8 +102,8 @@ public struct PBRRenderer: Element {
         let device = model.device
         precondition(lighting.environment.source.device === device, "The model and the lighting environment must be on one device")
         let shaders = try PBRShaders.shared(device: device)
-        let viewProjections = self.viewProjections
-        let cameraPositions = self.cameraPositions
+        let views = views
+        let viewProjections = views.viewProjections
         let transmissionScene: MTLTexture? = switch prePassStage {
         case .none: transmissionTarget?.color
         case .opaque: nil
@@ -110,9 +112,9 @@ public struct PBRRenderer: Element {
         var bindings = try PBRFrameBindings(
             lighting: lighting,
             viewProjections: viewProjections,
-            cameraPositions: cameraPositions,
+            cameraPositions: views.cameraPositions,
             debugView: isTransmissionPrePass ? .lit : debugView,
-            usesAmbientOcclusion: stereo == nil && !isTransmissionPrePass
+            usesAmbientOcclusion: usesAmbientOcclusion
         )
         bindings.frame.linearOutput = isTransmissionPrePass ? 1 : 0
         bindings.frame.showsWireframe = !isTransmissionPrePass && showsWireframe ? 1 : 0
@@ -122,8 +124,7 @@ public struct PBRRenderer: Element {
         bindings.transmissionScene = transmissionScene ?? shaders.placeholderTexture
         bindings.view = PBRViewUniforms(viewProjectionMatrices: viewPair(viewProjections), modelMatrix: modelMatrix, modelNormalMatrix: modelMatrix.inverse.transpose)
 
-        // Blended batches are sorted from between the eyes.
-        let plan = drawPlan(cameraPosition: cameraPositions.reduce(.zero, +) / Float(cameraPositions.count))
+        let plan = drawPlan(cameraPosition: views.centerPosition)
         let context = PipelineContext(shaders: shaders, bindings: bindings, modelIsMirrored: modelMatrix.isMirroring)
 
         return try Group {
