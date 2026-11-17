@@ -736,11 +736,13 @@ Found by code review; nothing here was built or run.
 ## 34: Each PBRRenderer copy in a multi-model or pre-pass frame rebuilds the frame bindings
 
 +++
-status: new
+status: closed
 priority: low
 kind: task
 labels: area:rendering, effort:m
 created: 2026-11-17T13:33:59Z
+updated: 2026-11-17T13:42:18Z
+closed: 2026-11-17T13:42:18Z
 +++
 
 Split out of #30.
@@ -756,11 +758,13 @@ Not measured; found by code review.
 ## 35: PBRLighting() builds the studio environment on the calling thread on first use
 
 +++
-status: new
+status: closed
 priority: low
 kind: enhancement
 labels: area:concurrency, effort:s
 created: 2026-11-17T13:36:08Z
+updated: 2026-11-17T13:42:18Z
+closed: 2026-11-17T13:42:18Z
 +++
 
 Split out of #27.
@@ -770,5 +774,6 @@ PBREnvironment.studio is a static let built on first access, and the build waits
 Avoiding this needs a public API change (for example an async way to get or warm the studio environment), which #27 was not allowed to make.
 
 - `2026-11-17T13:36:08Z`: Question 1 (decision): Add a public async way to warm or get the studio environment? Recommended: Yes
+- `2026-11-17T13:40:17Z`: Answer 1: Yes
 
 ---

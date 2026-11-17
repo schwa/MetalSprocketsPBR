@@ -171,7 +171,7 @@ public struct PBRScene: Element {
     }
 
     private func mainPass(lighting: PBRLighting, target: PBRTransmissionTarget?) throws -> some Element {
-        let renderers = mainRenderers(lighting: lighting, target: target)
+        let renderers = try PBRRenderer.sharingFrameBindings(mainRenderers(lighting: lighting, target: target))
         return try RenderPass {
             if showsBackground {
                 PBREnvironmentBackground(lighting: lighting, viewMatrix: viewMatrix, projectionMatrix: projectionMatrix)
@@ -240,7 +240,9 @@ public struct PBRScene: Element {
     }
 
     private func transmissionPass(lighting: PBRLighting, target: PBRTransmissionTarget) -> PBRTransmissionPass<EmptyElement> {
-        PBRTransmissionPass(renderers: items.map { renderer($0, lighting: lighting, target: target) }, target: target, showsBackground: showsBackground)
+        var pass = PBRTransmissionPass(renderers: items.map { renderer($0, lighting: lighting, target: target) }, target: target, showsBackground: showsBackground)
+        pass.sharesFrameBindings = true
+        return pass
     }
 }
 

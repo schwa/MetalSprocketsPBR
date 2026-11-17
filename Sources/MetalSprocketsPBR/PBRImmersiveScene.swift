@@ -64,12 +64,14 @@ public struct PBRImmersiveScene: Element {
                 renderer.debugView = debugView
                 return renderer
             }
-            let renderers = PBRScene.renderers(items, cameraPosition: PBRViews(viewMatrix: stereo.viewMatrices[0], projectionMatrix: stereo.projectionMatrices[0], stereo: stereo).centerPosition, make: renderer)
+            let renderers = try PBRRenderer.sharingFrameBindings(PBRScene.renderers(items, cameraPosition: PBRViews(viewMatrix: stereo.viewMatrices[0], projectionMatrix: stereo.projectionMatrices[0], stereo: stereo).centerPosition, make: renderer))
+            var transmissionPass = target.map { PBRTransmissionPass(renderers: items.map(renderer), target: $0, showsBackground: showsBackground) }
+            transmissionPass?.sharesFrameBindings = true
             return try Group {
-                if let target {
+                if let transmissionPass {
                     // Not the compositor's pass: without this, its render pass would end through the compositor's
                     // render context, which also ends the command buffer, and nothing after it could be encoded.
-                    PBRTransmissionPass(renderers: items.map(renderer), target: target, showsBackground: showsBackground)
+                    transmissionPass
                         .immersiveRenderContext(nil)
                 }
                 try ImmersiveRenderPass(context: context, label: "PBR Immersive") {

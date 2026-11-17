@@ -47,6 +47,13 @@ public final class PBREnvironment: @unchecked Sendable {
         }
     }()
 
+    /// ``studio``, built off the calling thread if it is not built yet. Call it early (e.g. at launch) so the first
+    /// `PBRLighting()` does not block the main thread while the studio is built.
+    @discardableResult
+    public static func loadStudio() async -> PBREnvironment {
+        await Task.detached(priority: .userInitiated) { studio }.value
+    }
+
     public convenience init(source: Source, device: MTLDevice? = nil, specularSize: Int = 256, irradianceSize: Int = 32) throws {
         let device = device ?? _MTLCreateSystemDefaultDevice()
         let builder = try PBREnvironmentBuilder(device: device)

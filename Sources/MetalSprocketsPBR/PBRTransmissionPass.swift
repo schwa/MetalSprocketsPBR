@@ -91,6 +91,8 @@ public struct PBRTransmissionPass<AdditionalContent: Element>: Element {
     public var renderer: PBRRenderer
     /// Further models drawn into the same target after `renderer`'s (by ``PBRScene`` with several models).
     var additionalRenderers: [PBRRenderer] = []
+    /// Every renderer has the same lighting, views and debug view (set by the scenes), so they share frame bindings.
+    var sharesFrameBindings = false
     public var target: PBRTransmissionTarget
     /// Also draw the environment behind the scene, so glass shows it.
     public var showsBackground: Bool
@@ -131,8 +133,16 @@ public struct PBRTransmissionPass<AdditionalContent: Element>: Element {
         var background = PBREnvironmentBackground(lighting: renderer.lighting, viewMatrix: renderer.viewMatrix, projectionMatrix: renderer.projectionMatrix)
         background.linearOutput = true
         background.stereo = stereo
-        let renderers = ([renderer] + additionalRenderers).map { $0.viewing(stereo) }
-        let backFaces = renderers.map { $0.prePass(.transmissiveBackFaces) }
+        var renderers = ([renderer] + additionalRenderers).map { $0.viewing(stereo) }
+        if sharesFrameBindings {
+            renderers = try PBRRenderer.sharingFrameBindings(renderers)
+        }
+        // The back-face stage's frame bindings match the opaque stage's (pre-pass, same views).
+        let backFaces = try renderers.map { renderer in
+            var backFaces = renderer.prePass(.transmissiveBackFaces)
+            backFaces.frameBindings = try renderer.frameBindings ?? renderer.makeFrameBindings()
+            return backFaces
+        }
         let hasBackFaces = renderers.contains { renderer in
             (renderer.model.opaqueBatches + renderer.model.blendedBatches).contains { batch in
                 batch.material(overrides: renderer.materialOverrides).hasTransmissiveBackFaces

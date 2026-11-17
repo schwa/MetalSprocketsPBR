@@ -56,6 +56,9 @@ public struct PBRRenderer: Element {
     /// them can be sorted together.
     var phase: DrawPhase = .all
     var isTransmissionPrePass: Bool { prePassStage != .none }
+    /// The frame's lighting and view bindings, built once and shared by renderers of one frame (see
+    /// ``sharingFrameBindings(_:)``). Nil builds them in `content()`. Cleared when the views or pre-pass stage change.
+    var frameBindings: PBRFrameBindings?
 
     enum DrawPhase: Equatable {
         case all
@@ -109,13 +112,7 @@ public struct PBRRenderer: Element {
         case .opaque: nil
         case .transmissiveBackFaces: try transmissionTarget?.backdrop()
         }
-        var bindings = try PBRFrameBindings(
-            lighting: lighting,
-            viewProjections: viewProjections,
-            cameraPositions: views.cameraPositions,
-            debugView: isTransmissionPrePass ? .lit : debugView,
-            usesAmbientOcclusion: usesAmbientOcclusion
-        )
+        var bindings = try frameBindings ?? makeFrameBindings()
         bindings.frame.linearOutput = isTransmissionPrePass ? 1 : 0
         bindings.frame.showsWireframe = !isTransmissionPrePass && showsWireframe ? 1 : 0
         bindings.frame.hasTransmissionScene = transmissionScene == nil ? 0 : 1
@@ -189,6 +186,18 @@ public struct PBRRenderer: Element {
             state.apply(to: descriptor)
         }
         .depthStencilDescriptor(state.depthStencilDescriptor(function: depthFunction))
+    }
+
+    /// The bindings that depend only on the lighting, views, debug view and pre-pass stage.
+    func makeFrameBindings() throws -> PBRFrameBindings {
+        let views = views
+        return try PBRFrameBindings(
+            lighting: lighting,
+            viewProjections: views.viewProjections,
+            cameraPositions: views.cameraPositions,
+            debugView: isTransmissionPrePass ? .lit : debugView,
+            usesAmbientOcclusion: usesAmbientOcclusion
+        )
     }
 
     /// What this renderer draws this frame; see ``PBRDrawPlan``.
@@ -322,6 +331,7 @@ extension PBRRenderer {
     func prePass(_ stage: TransmissionPrePassStage) -> Self {
         var renderer = self
         renderer.prePassStage = stage
+        renderer.frameBindings = nil
         return renderer
     }
 
@@ -329,7 +339,22 @@ extension PBRRenderer {
     func viewing(_ stereo: StereoViews?) -> Self {
         var renderer = self
         renderer.stereo = stereo
+        renderer.frameBindings = nil
         return renderer
+    }
+
+    /// `renderers` with the first one's frame bindings built once and shared. The caller guarantees they all have the
+    /// same lighting, views, debug view and pre-pass stage.
+    static func sharingFrameBindings(_ renderers: [PBRRenderer]) throws -> [PBRRenderer] {
+        guard renderers.count > 1 else {
+            return renderers
+        }
+        let bindings = try renderers[0].makeFrameBindings()
+        return renderers.map { renderer in
+            var renderer = renderer
+            renderer.frameBindings = bindings
+            return renderer
+        }
     }
 
     /// Draws `renderers` in order. The first is drawn directly: with one renderer the ForEach is empty, which costs
