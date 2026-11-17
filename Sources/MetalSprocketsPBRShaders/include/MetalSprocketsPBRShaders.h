@@ -19,3 +19,4 @@ NS_ASSUME_NONNULL_END
 
 #import "PBRShaderTypes.h"
 #import "PBRShaderSupport.h"
+#import "PBRLighting.h" // Metal-only; empty when compiled for Swift.

@@ -1,7 +1,7 @@
 #pragma once
 
 // PBR shading shared by the mesh shader and other surfaces that build their own Fragment, such as raymarched SDFs.
-// Metal only; not part of the Swift-visible umbrella header.
+// Metal only; the umbrella header includes it, but it is empty when compiled for Swift.
 #ifdef __METAL_VERSION__
 
 #include <metal_stdlib>
