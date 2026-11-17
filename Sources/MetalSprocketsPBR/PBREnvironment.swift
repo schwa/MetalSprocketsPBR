@@ -79,6 +79,20 @@ public final class PBREnvironment: @unchecked Sendable {
         try self.init(builder: builder, source: sourceTexture, specularSize: specularSize, irradianceSize: irradianceSize)
     }
 
+    private static let buildQueue = DispatchQueue(label: "MetalSprocketsPBR.EnvironmentBuild")
+
+    /// ``init(cube:colorMatrix:scale:device:specularSize:irradianceSize:)`` on a dispatch queue. The build waits for
+    /// the GPU, which must not block a Swift concurrency thread. Builds run one at a time.
+    static func build(cube: MTLTexture, colorMatrix: simd_float3x3, scale: Float, specularSize: Int = 128, irradianceSize: Int = 32) async throws -> PBREnvironment {
+        // MTLTexture is not Sendable; the caller waits, and only the build reads the cube until then.
+        nonisolated(unsafe) let cube = cube
+        return try await withCheckedThrowingContinuation { continuation in
+            buildQueue.async {
+                continuation.resume(with: Result { try PBREnvironment(cube: cube, colorMatrix: colorMatrix, scale: scale, specularSize: specularSize, irradianceSize: irradianceSize) })
+            }
+        }
+    }
+
     /// Linear Display P3 to linear sRGB (both D65).
     public static let displayP3ToLinearSRGB = simd_float3x3(rows: [
         [1.2249, -0.2247, 0],

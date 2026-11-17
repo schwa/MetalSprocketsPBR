@@ -537,12 +537,13 @@ Seen in SceneSprocketsAddOns #41 and #45.
 ## 27: Environment builds block the calling thread until the GPU finishes
 
 +++
-status: open
+status: closed
 priority: low
 kind: enhancement
 labels: effort:s, area:concurrency
 created: 2026-11-17T13:24:34Z
-updated: 2026-11-17T13:27:19Z
+updated: 2026-11-17T13:36:08Z
+closed: 2026-11-17T13:36:08Z
 +++
 
 Building a PBREnvironment waits synchronously for its GPU work (commandBuffer.waitUntilCompleted() in PBREnvironment.swift).
@@ -555,6 +556,8 @@ Two places this lands on a thread that should not block:
 Expected: environment builds do not block a cooperative-pool thread or the main thread.
 
 No measured hitch or starvation yet; found by code review.
+
+- `2026-11-17T13:36:08Z`: Room lighting no longer blocks a Swift concurrency thread: rebuilds go through an internal async PBREnvironment.build(cube:...) that runs the GPU-waiting build on a serial dispatch queue and resumes a continuation. The studio part needs a public API change, so it is split out as #35. The PBRRoomLighting change is visionOS-only and was not compiled (xcb builds this package for macOS only); the async build itself is covered by EnvironmentTests.cubeEnvironmentAppliesScale.
 
 ---
 
@@ -740,5 +743,25 @@ PBRScene, PBRImmersiveScene and PBRTransmissionPass draw one frame with several 
 Not measured; found by code review.
 
 - `2026-11-17T13:34:03Z`: Split out of #30.
+
+---
+
+## 35: PBRLighting() builds the studio environment on the calling thread on first use
+
++++
+status: new
+priority: low
+kind: enhancement
+labels: area:concurrency, effort:s
+created: 2026-11-17T13:36:08Z
++++
+
+Split out of #27.
+
+PBREnvironment.studio is a static let built on first access, and the build waits for the GPU. It is the default argument of PBRLighting.init, so the first PBRLighting() (often in a view body or element body on the main thread) blocks that thread for the whole studio build (2048x1024 source, 256 specular cube, irradiance, BRDF table).
+
+Avoiding this needs a public API change (for example an async way to get or warm the studio environment), which #27 was not allowed to make.
+
+- `2026-11-17T13:36:08Z`: Question 1 (decision): Add a public async way to warm or get the studio environment? Recommended: Yes
 
 ---

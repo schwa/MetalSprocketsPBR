@@ -121,7 +121,7 @@ public final class PBRRoomLighting: Sendable {
             }
             let start = ContinuousClock.now
             do {
-                let environment = try PBREnvironment(cube: texture, colorMatrix: PBREnvironment.displayP3ToLinearSRGB, scale: scale)
+                let environment = try await PBREnvironment.build(cube: texture, colorMatrix: PBREnvironment.displayP3ToLinearSRGB, scale: scale)
                 state.withLock {
                     $0.environment = environment
                     $0.status = .running

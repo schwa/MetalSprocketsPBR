@@ -39,7 +39,7 @@ struct EnvironmentTests {
     }
 
     @Test
-    func cubeEnvironmentAppliesScale() throws {
+    func cubeEnvironmentAppliesScale() async throws {
         let size = 4
         let descriptor = MTLTextureDescriptor.textureCubeDescriptor(pixelFormat: .rgba16Float, size: size, mipmapped: false)
         descriptor.usage = .shaderRead
@@ -51,5 +51,8 @@ struct EnvironmentTests {
         let environment = try PBREnvironment(cube: cube, scale: 2, specularSize: 16, irradianceSize: 8)
         #expect(environment.source.width == 16)
         #expect(abs(averageRed(environment) - 2) < 0.05)
+        // The async build, as room lighting uses it, makes the same environment.
+        let built = try await PBREnvironment.build(cube: cube, colorMatrix: matrix_identity_float3x3, scale: 2, specularSize: 16, irradianceSize: 8)
+        #expect(abs(averageRed(built) - 2) < 0.05)
     }
 }
