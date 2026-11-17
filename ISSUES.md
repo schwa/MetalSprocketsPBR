@@ -801,3 +801,36 @@ Found from SceneSprockets#479. In SceneSprockets, SceneView draws on a render th
 Expected: PBRMaterial can be changed from one thread while another thread renders with it, without data races, and changes show on the next frame.
 
 ---
+
+## 37: Investigate removing merged geometry (PBRMergedGeometry)
+
++++
+status: new
+priority: medium
+kind: task
+labels: area:performance,effort:l,investigate
+created: 2026-11-17T20:03:34Z
++++
+
+PBRMergedGeometry merges opaque, unmorphed triangle primitives into shared vertex, index, instance and material buffers so one draw element issues many Metal draws. Its doc comment gives the reason: MetalSprockets' per-frame cost grows with the number of elements, not with Metal draw calls. Merging works around overhead in MetalSprockets; it does not address a GPU cost.
+
+Costs of merging:
+- Two drawing paths: merged (opaque static and skinned) and per-batch (blended, morphed, transmissive), each with its own rules.
+- Material changes are harder: the merged path reads a prebuilt material buffer, so live material changes need overrides, and pass changes need a model rebuild (SceneSprockets#479, #36).
+- Geometry is copied into the shared buffers and rebuilt with the model.
+
+Merging may have been the wrong choice. The per-element overhead it avoids belongs in MetalSprockets, where it is tracked:
+- MetalSprockets#476 Argument tables are rebuilt and fully re-bound for every draw on every frame
+- MetalSprockets#513 Collapsed parameter chain rebuilds the ParameterSet for every draw every frame
+- MetalSprockets#519 Draw subtrees are never reused between frames
+- MetalSprockets#522 No closure-free Draw for single draw calls
+
+Merged geometry is not required for GPU-driven rendering: plain indirect draws work per mesh, and indirect command buffers need bindless materials and per-command or addressable vertex data, not one merged buffer (SceneSprockets#517, #520, #522).
+
+There are no measurements. Unknown: the per-element cost in MetalSprockets today, how much merging saves, at what primitive counts, and how that changes if the MetalSprockets issues above are fixed.
+
+Needed before deciding:
+- Heavy benchmarks of merged versus per-primitive drawing at several primitive and material counts (CPU frame time, GPU time, memory), in Debug and Release.
+- The same benchmarks after the MetalSprockets per-element costs are reduced.
+
+---
