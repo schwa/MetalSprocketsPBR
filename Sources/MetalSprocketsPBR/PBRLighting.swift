@@ -3,6 +3,9 @@ import Metal
 @_exported import MetalSprocketsPBRShaders
 import simd
 
+// @unchecked: MTLTexture and MTLSamplerState are not Sendable. The renderer only reads them, and Metal allows that
+// from any thread.
+
 /// A depth shadow map for lights with shadow slices (``PBRLight/shadowSliceStart``, ``PBRLight/shadowSliceCount``).
 /// Each light's direct light is scaled by the PCF result of its own slices only.
 public struct PBRShadows: @unchecked Sendable {
@@ -44,6 +47,8 @@ public struct PBRShadows: @unchecked Sendable {
         return uniforms
     }
 }
+
+// @unchecked: MTLTexture is not Sendable. The renderer only reads it, and Metal allows that from any thread.
 
 /// Screen-space ambient occlusion computed by the caller, e.g. SSAO. It darkens only indirect (image-based) light,
 /// on top of the material's occlusion texture. Ignored in stereo and by the transmission pre-pass.

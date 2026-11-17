@@ -564,12 +564,13 @@ No measured hitch or starvation yet; found by code review.
 ## 28: PBRShadows and PBRAmbientOcclusion are @unchecked Sendable with no stated reason
 
 +++
-status: open
+status: closed
 priority: low
 kind: task
 labels: effort:xs, area:concurrency
 created: 2026-11-17T13:24:34Z
-updated: 2026-11-17T13:27:19Z
+updated: 2026-11-17T13:36:17Z
+closed: 2026-11-17T13:36:17Z
 +++
 
 In PBRLighting.swift, PBRShadows and PBRAmbientOcclusion are declared @unchecked Sendable without a comment saying why that is safe. Every other @unchecked Sendable and nonisolated(unsafe) in the package states its justification.
@@ -577,6 +578,8 @@ In PBRLighting.swift, PBRShadows and PBRAmbientOcclusion are declared @unchecked
 Expected: each unchecked conformance says why it is safe.
 
 No known race; found by code review.
+
+- `2026-11-17T13:36:17Z`: Added comments stating why each @unchecked Sendable is safe.
 
 ---
 
