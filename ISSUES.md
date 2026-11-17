@@ -514,3 +514,22 @@ PBRStereoViews is this package's own copy of per-view stereo matrices, viewports
 Once MetalSprockets ships a shared StereoViews (#MetalSprockets#558) in a tagged release, adopt it in place of PBRStereoViews and bump the MetalSprockets dependency.
 
 ---
+
+## 26: Surfaces that build their own Fragment cannot get the frame bindings
+
++++
+status: closed
+priority: medium
+kind: feature
+created: 2026-11-17T02:32:02Z
+updated: 2026-11-17T02:54:37Z
+closed: 2026-11-17T02:54:37Z
++++
+
+PBRLighting.h lets other shaders call PBR::shade, but the Swift side that fills its inputs is private to PBRRenderer: PBRFrameUniforms setup, the lights array, environment textures and sampler, shadow uniforms and map, ambient occlusion, and the placeholder textures for when there is no shadow map, transmission scene, or occlusion. Another renderer has to copy that code to call PBR::shade, and its result drifts from PBR meshes.
+
+PBRMaterialUniforms.resolved and PBRMaterial.resourceBuffer are also internal, so a PBRMaterial cannot be bound for such a shader.
+
+Seen in SceneSprocketsAddOns #41 and #45.
+
+---

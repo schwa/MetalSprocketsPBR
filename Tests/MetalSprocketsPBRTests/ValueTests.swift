@@ -8,6 +8,20 @@ import Testing
 
 struct ValueTests {
     @Test
+    func frameBindingsFillPlaceholdersForWhatIsOff() throws {
+        var lighting = PBRLighting(exposure: 2)
+        lighting.ambientOcclusion = nil
+        let bindings = try PBRFrameBindings(lighting: lighting, viewProjections: [matrix_identity_float4x4], cameraPositions: [[1, 2, 3]])
+        #expect(bindings.lights.count == 1)
+        #expect(bindings.frame.lightCount == 0)
+        #expect(bindings.frame.exposure == 2)
+        #expect(bindings.frame.cameraPositions.0 == [1, 2, 3])
+        #expect(bindings.frame.cameraPositions.1 == [1, 2, 3])
+        #expect(bindings.shadow.enabled == 0)
+        #expect(bindings.frame.ambientOcclusionStrength == 0)
+    }
+
+    @Test
     func cameraFramingKeepsBoundsInView() {
         let bounds = BoundingBox3D(min: [-1, -1, -1], max: [1, 1, 1])
         for aspectRatio: Float in [0.5, 2] {

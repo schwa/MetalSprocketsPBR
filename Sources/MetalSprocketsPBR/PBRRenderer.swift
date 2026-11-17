@@ -92,44 +92,25 @@ public struct PBRRenderer: Element {
         let shaders = try PBRShaders.shared()
         let viewProjections = self.viewProjections
         let cameraPositions = self.cameraPositions
-        var frame = PBRFrameUniforms()
-        frame.cameraPositions = viewPair(cameraPositions)
-        frame.exposure = lighting.exposure
-        frame.toneMapping = lighting.toneMapping.shaderValue
-        frame.environmentRotation = lighting.environmentRotationMatrix
-        frame.lightCount = Int32(lighting.lights.count)
-        let environment = lighting.environment
-        frame.environmentIntensity = lighting.environmentIntensity
-        frame.specularMipCount = Float(environment.specular.mipmapLevelCount)
-        frame.viewProjectionMatrices = viewPair(viewProjections)
-        frame.linearOutput = isTransmissionPrePass ? 1 : 0
-        frame.debugView = (isTransmissionPrePass ? PBRDebugView.lit : debugView).shaderValue
-        frame.showsWireframe = !isTransmissionPrePass && showsWireframe ? 1 : 0
         let transmissionScene: MTLTexture? = switch prePassStage {
         case .none: transmissionTarget?.color
         case .opaque: nil
         case .transmissiveBackFaces: try transmissionTarget?.backdrop()
         }
-        frame.hasTransmissionScene = transmissionScene == nil ? 0 : 1
-        frame.transmissionAsCoverage = transmissionAsCoverage ? 1 : 0
-        frame.transmissionSceneMipCount = Float(transmissionScene?.mipmapLevelCount ?? 1)
-        let ambientOcclusion = stereo == nil && !isTransmissionPrePass ? lighting.ambientOcclusion : nil
-        frame.ambientOcclusionStrength = ambientOcclusion?.strength ?? 0
-        let bindings = FrameBindings(
-            transmissionScene: transmissionScene ?? shaders.placeholderTexture,
-            view: PBRViewUniforms(viewProjectionMatrices: viewPair(viewProjections), modelMatrix: modelMatrix, modelNormalMatrix: modelMatrix.inverse.transpose),
-            frame: frame,
-            // Shaders read through a pointer, so always bind at least one light.
-            lights: lighting.lights.isEmpty ? [PBRLight()] : lighting.lights,
-            irradiance: environment.irradiance,
-            specular: environment.specular,
-            brdfLookup: environment.brdfLookup,
-            sampler: shaders.environmentSampler,
-            shadow: lighting.shadows?.uniforms ?? PBRShadowUniforms(),
-            shadowMap: lighting.shadows?.map ?? shaders.placeholderShadowMap,
-            shadowSampler: lighting.shadows?.sampler ?? shaders.shadowSampler,
-            ambientOcclusion: ambientOcclusion?.texture ?? shaders.placeholderOcclusion
+        var bindings = try PBRFrameBindings(
+            lighting: lighting,
+            viewProjections: viewProjections,
+            cameraPositions: cameraPositions,
+            debugView: isTransmissionPrePass ? .lit : debugView,
+            usesAmbientOcclusion: stereo == nil && !isTransmissionPrePass
         )
+        bindings.frame.linearOutput = isTransmissionPrePass ? 1 : 0
+        bindings.frame.showsWireframe = !isTransmissionPrePass && showsWireframe ? 1 : 0
+        bindings.frame.hasTransmissionScene = transmissionScene == nil ? 0 : 1
+        bindings.frame.transmissionAsCoverage = transmissionAsCoverage ? 1 : 0
+        bindings.frame.transmissionSceneMipCount = Float(transmissionScene?.mipmapLevelCount ?? 1)
+        bindings.transmissionScene = transmissionScene ?? shaders.placeholderTexture
+        bindings.view = PBRViewUniforms(viewProjectionMatrices: viewPair(viewProjections), modelMatrix: modelMatrix, modelNormalMatrix: modelMatrix.inverse.transpose)
 
         // Blended batches are sorted from between the eyes.
         let plan = drawPlan(cameraPosition: cameraPositions.reduce(.zero, +) / Float(cameraPositions.count))
@@ -165,7 +146,7 @@ public struct PBRRenderer: Element {
 
     private struct PipelineContext {
         var shaders: PBRShaders
-        var bindings: FrameBindings
+        var bindings: PBRFrameBindings
         var modelIsMirrored: Bool
         var skinPose: PBRPose?
     }
@@ -192,7 +173,8 @@ public struct PBRRenderer: Element {
         try RenderPipeline(label: label, vertexShader: context.shaders.vertexShader(variant), fragmentShader: context.shaders.fragment) {
             context.bindings.apply(to: ForEach(batches) { batch in
                 draw(batch)
-            })
+            }
+            .parameter("view", value: context.bindings.view))
         }
         .vertexDescriptor(variant.skinned ? PBRModel.skinnedVertexDescriptor : PBRModel.vertexDescriptor)
         .renderPipelineDescriptorTransformer { descriptor in
@@ -261,7 +243,7 @@ public struct PBRRenderer: Element {
             .parameter("recordMaterials", values: materials, else: merged.materialBuffer)
             .parameter("recordResources", values: resources, else: merged.resourceBuffer)
         return try RenderPipeline(label: label, vertexShader: vertexShader, fragmentShader: context.shaders.mergedFragment) {
-            context.bindings.apply(to: content)
+            context.bindings.apply(to: content.parameter("view", value: context.bindings.view))
         }
         .vertexDescriptor(vertexDescriptor)
         .depthCompare(function: depthFunction, writes: true)
@@ -421,24 +403,64 @@ extension Element {
     }
 }
 
-/// Per-frame shader inputs shared by every draw in a pipeline.
-private struct FrameBindings {
-    var transmissionScene: MTLTexture
+/// The per-frame inputs of `PBR::shade` (PBRLighting.h): frame uniforms, lights, environment, shadows and screen-space
+/// occlusion, with placeholders for what is off. ``PBRRenderer`` uses it; so can other renderers whose shaders build
+/// their own `PBR::Fragment`, so their surfaces are lit like PBR meshes.
+///
+/// ``apply(to:)`` binds by name: `frame`, `lights`, `environmentIrradiance`, `environmentSpecular`, `brdfLookup`,
+/// `environmentSampler`, `transmissionScene`, `shadow`, `shadowMap`, `shadowSampler` and `ambientOcclusion`, as
+/// `PBR::shade` takes them.
+public struct PBRFrameBindings {
+    public var frame: PBRFrameUniforms
+    /// Never empty: shaders read through a pointer, so an unlit frame binds one unused light.
+    public var lights: [PBRLight]
+    // PBRRenderer's vertex shaders; not bound by apply(to:).
     var view: PBRViewUniforms
-    var frame: PBRFrameUniforms
-    var lights: [PBRLight]
-    var irradiance: MTLTexture
-    var specular: MTLTexture
-    var brdfLookup: MTLTexture
-    var sampler: MTLSamplerState
-    var shadow: PBRShadowUniforms
-    var shadowMap: MTLTexture
-    var shadowSampler: MTLSamplerState
-    var ambientOcclusion: MTLTexture
+    public var transmissionScene: MTLTexture
+    public var irradiance: MTLTexture
+    public var specular: MTLTexture
+    public var brdfLookup: MTLTexture
+    public var sampler: MTLSamplerState
+    public var shadow: PBRShadowUniforms
+    public var shadowMap: MTLTexture
+    public var shadowSampler: MTLSamplerState
+    public var ambientOcclusion: MTLTexture
 
-    func apply(to content: some Element) -> some Element {
+    /// Bindings for `lighting` seen from `viewProjections` (one per view; two in stereo). There is no transmission
+    /// scene, so transmissive materials refract the environment.
+    public init(lighting: PBRLighting, viewProjections: [simd_float4x4], cameraPositions: [SIMD3<Float>], debugView: PBRDebugView = .lit, usesAmbientOcclusion: Bool = true) throws {
+        precondition(!viewProjections.isEmpty && viewProjections.count == cameraPositions.count, "One camera position per view")
+        let shaders = try PBRShaders.shared()
+        let environment = lighting.environment
+        let ambientOcclusion = usesAmbientOcclusion ? lighting.ambientOcclusion : nil
+        var frame = PBRFrameUniforms()
+        frame.cameraPositions = viewPair(cameraPositions)
+        frame.exposure = lighting.exposure
+        frame.toneMapping = lighting.toneMapping.shaderValue
+        frame.environmentRotation = lighting.environmentRotationMatrix
+        frame.lightCount = Int32(lighting.lights.count)
+        frame.environmentIntensity = lighting.environmentIntensity
+        frame.specularMipCount = Float(environment.specular.mipmapLevelCount)
+        frame.viewProjectionMatrices = viewPair(viewProjections)
+        frame.debugView = debugView.shaderValue
+        frame.transmissionSceneMipCount = 1
+        frame.ambientOcclusionStrength = ambientOcclusion?.strength ?? 0
+        self.frame = frame
+        lights = lighting.lights.isEmpty ? [PBRLight()] : lighting.lights
+        view = PBRViewUniforms(viewProjectionMatrices: viewPair(viewProjections), modelMatrix: matrix_identity_float4x4, modelNormalMatrix: matrix_identity_float4x4)
+        transmissionScene = shaders.placeholderTexture
+        irradiance = environment.irradiance
+        specular = environment.specular
+        brdfLookup = environment.brdfLookup
+        sampler = shaders.environmentSampler
+        shadow = lighting.shadows?.uniforms ?? PBRShadowUniforms()
+        shadowMap = lighting.shadows?.map ?? shaders.placeholderShadowMap
+        shadowSampler = lighting.shadows?.sampler ?? shaders.shadowSampler
+        self.ambientOcclusion = ambientOcclusion?.texture ?? shaders.placeholderOcclusion
+    }
+
+    public func apply(to content: some Element) -> some Element {
         content
-            .parameter("view", value: view)
             .parameter("frame", value: frame)
             .parameter("lights", values: lights)
             .parameter("environmentIrradiance", texture: irradiance)
