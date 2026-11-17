@@ -777,3 +777,25 @@ Avoiding this needs a public API change (for example an async way to get or warm
 - `2026-11-17T13:40:17Z`: Answer 1: Yes
 
 ---
+
+## 36: PBRMaterial cannot be changed safely while another thread renders with it
+
++++
+status: new
+priority: medium
+kind: bug
+labels: area:api
+created: 2026-11-17T19:17:12Z
++++
+
+PBRMaterial is a class with public vars (uniforms, renderState, textureTransforms). A render thread reads them every frame while drawing. An app that changes them on another thread (for example material.uniforms.roughnessFactor = x on the main thread) is a data race. There is no supported, race-free way to change one parameter of a live material.
+
+Two derived values also decide which pass a primitive draws in: isBlended and isTransmissive. They are read when the model is built and while drawing.
+
+For merged geometry, the prebuilt material buffer is used unless pose.materialUniforms is not empty or there are overrides (PBRMergedGeometry.materials). An in-place change after the model is built may therefore not show. This has not been verified in a running view.
+
+Found from SceneSprockets#479. In SceneSprockets, SceneView draws on a render thread, and glTF material animation writes material.uniforms every frame.
+
+Expected: PBRMaterial can be changed from one thread while another thread renders with it, without data races, and changes show on the next frame.
+
+---
