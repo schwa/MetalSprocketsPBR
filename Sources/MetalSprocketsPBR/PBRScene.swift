@@ -116,9 +116,7 @@ public struct PBRScene: Element {
         let lighting = lighting ?? PBRLighting(lights: items.flatMap(\.model.lights))
         let upscale = try upscaling.flatMap { try upscaleTargets.targets(for: $0, outputSize: viewportSize) }
         let renderSize = upscale.map { CGSize(width: $0.color.width, height: $0.color.height) } ?? viewportSize
-        // Debug views do not show what is behind glass, so they skip the transmission pre-pass.
-        let hasTransmission = items.contains(where: \.model.hasTransmission)
-        let target = hasTransmission && debugView == .lit ? try transmissionTargets.target(width: Int(renderSize.width), height: Int(renderSize.height)) : nil
+        let target = Self.needsTransmissionPass(items, debugView: debugView) ? try transmissionTargets.target(width: Int(renderSize.width), height: Int(renderSize.height)) : nil
         return try Group {
             if let target {
                 transmissionPass(lighting: lighting, target: target)
@@ -193,30 +191,41 @@ public struct PBRScene: Element {
         Self.renderers(items, cameraPosition: viewMatrix.inverse.columns.3.xyz) { renderer($0, lighting: lighting, target: target) }
     }
 
+    /// Whether `items` draw a transmission pre-pass. Debug views do not show what is behind glass, so they skip it.
+    static func needsTransmissionPass(_ items: [Item], debugView: PBRDebugView) -> Bool {
+        debugView == .lit && items.contains(where: \.model.hasTransmission)
+    }
+
     /// The renderers that draw `items`, made by `make`: one per item for opaque batches, then one per run of an
-    /// item's blended batches in a shared back-to-front order (see ``blendedRuns(_:cameraPosition:)``).
+    /// item's blended batches in a shared back-to-front order (see ``blendedRuns(_:cameraPosition:coverage:)``).
     static func renderers(_ items: [Item], cameraPosition: SIMD3<Float>, make: (Item) -> PBRRenderer) -> [PBRRenderer] {
         guard items.count > 1 else {
             return [make(items[0])]
         }
-        // Each item's plan keeps a given blended order, so the batches are sorted once, here, across items.
+        // Each item's plan keeps a given blended order, so the batches are sorted once, here, across items. Glass drawn
+        // as coverage writes depth, so it joins that order rather than its item's opaque phase, which would hide other
+        // items' opaque batches behind it.
+        let coverage = make(items[0]).transmissionAsCoverage
         let opaque = items.map { make($0).drawing(.opaque) }
-        let blended = blendedRuns(items, cameraPosition: cameraPosition).map { make(items[$0.item]).drawing(.blended($0.batches)) }
+        let blended = blendedRuns(items, cameraPosition: cameraPosition, coverage: coverage).map { make(items[$0.item]).drawing(.blended($0.batches)) }
         return opaque + blended
     }
 
-    /// Every item's blended batches sorted back to front by their centers, split into runs of consecutive batches
-    /// from the same item.
-    static func blendedRuns(_ items: [Item], cameraPosition: SIMD3<Float>) -> [(item: Int, batches: [Int])] {
-        var entries: [(item: Int, batch: Int, distance: Float)] = []
+    /// Every item's blended batches, and with `coverage` its transmissive opaque ones, sorted back to front by their
+    /// centers and split into runs of consecutive batches from the same item.
+    static func blendedRuns(_ items: [Item], cameraPosition: SIMD3<Float>, coverage: Bool = false) -> [(item: Int, batches: [PBRRenderer.SortedBatch])] {
+        var entries: [(item: Int, batch: PBRRenderer.SortedBatch, distance: Float)] = []
         for (index, item) in items.enumerated() {
-            for batch in item.model.blendedBatches {
-                let bounds = item.pose.map { item.model.worldBounds(of: batch, pose: $0) } ?? batch.worldBounds
-                entries.append((index, batch.id, simd_distance_squared(bounds.transformedKeepingEmpty(by: item.modelMatrix).center, cameraPosition)))
+            let model = item.model
+            let glass = coverage ? model.opaqueBatches.filter { $0.material(overrides: item.materialOverrides).isTransmissive } : []
+            let sorted = model.blendedBatches.map { ($0, false) } + glass.map { ($0, true) }
+            for (batch, isCoverage) in sorted {
+                let center = model.worldBounds(of: batch, pose: item.pose, modelMatrix: item.modelMatrix).center
+                entries.append((index, PBRRenderer.SortedBatch(id: batch.id, coverage: isCoverage), simd_distance_squared(center, cameraPosition)))
             }
         }
         entries.sort { $0.distance > $1.distance }
-        var runs: [(item: Int, batches: [Int])] = []
+        var runs: [(item: Int, batches: [PBRRenderer.SortedBatch])] = []
         for entry in entries {
             if let last = runs.last, last.item == entry.item {
                 runs[runs.count - 1].batches.append(entry.batch)

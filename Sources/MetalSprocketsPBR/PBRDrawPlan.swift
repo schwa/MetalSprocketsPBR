@@ -95,7 +95,7 @@ struct PBRDrawPlan {
     ///   - writesBlendedDepth: Blended batches write depth whatever their render state says (stereo).
     ///   - drawsTrianglesOnly: Leave out point and line batches (a rasterization rate map allows only triangles).
     init(model: PBRModel, pose: PBRPose?, stage: PBRRenderer.TransmissionPrePassStage, viewProjections: [simd_float4x4], cameraPosition: SIMD3<Float>, modelMatrix: simd_float4x4, usesMergedGeometry: Bool, materialOverrides: PBRModel.MaterialOverrides = [:], phase: PBRRenderer.DrawPhase = .all, transmissionAsCoverage: Bool = false, writesBlendedDepth: Bool = false, drawsTrianglesOnly: Bool = false) {
-        var blendedOrder: [Int]?
+        var blendedOrder: [PBRRenderer.SortedBatch]?
         if case let .blended(order) = phase {
             blendedOrder = order
         }
@@ -104,7 +104,7 @@ struct PBRDrawPlan {
         // Frustum culling: batches whose (posed) bounds are entirely outside the view are not drawn.
         let frustums = viewProjections.map { Frustum(viewProjection: $0) }
         func worldBounds(_ batch: PBRModel.Batch) -> BoundingBox3D {
-            (pose.map { model.worldBounds(of: batch, pose: $0) } ?? batch.worldBounds).transformedKeepingEmpty(by: modelMatrix)
+            model.worldBounds(of: batch, pose: pose, modelMatrix: modelMatrix)
         }
         func isTransmissive(_ batch: PBRModel.Batch) -> Bool {
             batch.material(overrides: materialOverrides).isTransmissive
@@ -123,7 +123,7 @@ struct PBRDrawPlan {
             let inStage = switch stage {
             case .none: true
             case .opaque: !material.isTransmissive
-            case .transmissiveBackFaces: material.isTransmissive && material.doubleSided
+            case .transmissiveBackFaces: material.hasTransmissiveBackFaces
             }
             guard inStage else { return false }
             let bounds = worldBounds(batch)
@@ -187,14 +187,18 @@ struct PBRDrawPlan {
 
         // Blended primitives keep one back-to-front order. Each vertex variant needs its own pipeline, so the order is
         // split into consecutive runs, each drawn with its own pipeline. With transmission as coverage, transmissive
-        // opaque batches join the order (drawn by whichever renderer draws this model's opaque batches).
-        let coverage = transmissionAsCoverage && drawsOpaque ? model.opaqueBatches.filter(isTransmissive).map { (batch: $0, premultiplied: true) } : []
+        // opaque batches join the order. With several models they write depth, so they join the shared order of the
+        // blended phase (see ``PBRScene/blendedOrder(_:cameraPosition:coverage:)``), after every model's opaque phase.
+        let coverage = transmissionAsCoverage && phase == .all ? model.opaqueBatches.filter(isTransmissive).map { (batch: $0, premultiplied: true) } : []
         var candidates: [(batch: PBRModel.Batch, premultiplied: Bool)]
         if !drawsBlended {
-            candidates = coverage
+            candidates = []
         } else if let blendedOrder {
-            let byID = Dictionary(uniqueKeysWithValues: model.blendedBatches.map { ($0.id, $0) })
-            candidates = blendedOrder.compactMap { byID[$0] }.map { ($0, false) }
+            let blendedByID = Dictionary(uniqueKeysWithValues: model.blendedBatches.map { ($0.id, $0) })
+            let opaqueByID = Dictionary(uniqueKeysWithValues: model.opaqueBatches.map { ($0.id, $0) })
+            candidates = blendedOrder.compactMap { entry in
+                (entry.coverage ? opaqueByID[entry.id] : blendedByID[entry.id]).map { ($0, entry.coverage) }
+            }
         } else {
             candidates = model.blendedBatches.map { ($0, false) } + coverage
         }

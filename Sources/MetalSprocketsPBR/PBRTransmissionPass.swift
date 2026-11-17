@@ -135,8 +135,7 @@ public struct PBRTransmissionPass<AdditionalContent: Element>: Element {
         let backFaces = renderers.map { $0.prePass(.transmissiveBackFaces) }
         let hasBackFaces = renderers.contains { renderer in
             (renderer.model.opaqueBatches + renderer.model.blendedBatches).contains { batch in
-                let material = batch.material(overrides: renderer.materialOverrides)
-                return material.isTransmissive && material.doubleSided
+                batch.material(overrides: renderer.materialOverrides).hasTransmissiveBackFaces
             }
         }
         return try Group {

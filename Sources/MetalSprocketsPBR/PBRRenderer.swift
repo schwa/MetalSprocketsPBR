@@ -56,10 +56,17 @@ public struct PBRRenderer: Element {
 
     enum DrawPhase: Equatable {
         case all
-        /// Opaque and masked batches only.
+        /// Opaque and masked batches only, without transmissive ones drawn as coverage.
         case opaque
-        /// Only these blended batches (by ID), in this order.
-        case blended([Int])
+        /// Only these batches, in this order.
+        case blended([SortedBatch])
+    }
+
+    /// A batch in a back-to-front order: a blended batch, or a transmissive opaque one drawn as coverage. Batch IDs
+    /// are unique only among a model's opaque or blended batches.
+    struct SortedBatch: Hashable {
+        var id: Int
+        var coverage: Bool
     }
 
     enum TransmissionPrePassStage {

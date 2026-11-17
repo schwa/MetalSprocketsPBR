@@ -1,5 +1,6 @@
 import GeometryLite3D
 import Metal
+import MetalSprockets
 @testable import MetalSprocketsPBR
 import MetalSprocketsPBRShaders
 import simd
@@ -306,6 +307,32 @@ struct SceneOrderingTests {
         #expect(all.map { ObjectIdentifier($0.model) } == [ObjectIdentifier(first), ObjectIdentifier(second)])
     }
 
+    // Stereo glass writes depth, so an item's glass must not be drawn before another item's opaque batches behind it.
+    @Test func stereoCoverageGlassDrawsAfterEveryItemsOpaqueBatches() throws {
+        let glass = try models.material(transmission: 1)
+        let first = try models.model([([0, 0, 2], glass)])
+        let second = try models.model([([0, 0, -2], models.material())])
+        let items = [PBRScene.Item(model: first), PBRScene.Item(model: second)]
+        let eye: SIMD3<Float> = [0, 0, 10]
+        let view = LookAt(position: eye, target: .zero, up: [0, 1, 0]).viewMatrix
+        let projection = PerspectiveProjection(verticalAngleOfView: .radians(.pi / 4), depthMode: .reversed(zClip: 0.1 ... 100)).projectionMatrix(aspectRatio: 1)
+        let viewport = MTLViewport(originX: 0, originY: 0, width: 4, height: 4, znear: 0, zfar: 1)
+        let stereo = StereoViews(viewMatrices: [view, view], projectionMatrices: [projection, projection], viewports: [viewport, viewport])
+        let renderers = PBRScene.renderers(items, cameraPosition: eye) { item in
+            var renderer = PBRRenderer(model: item.model, viewMatrix: view, projectionMatrix: projection)
+            renderer.stereo = stereo
+            return renderer
+        }
+        // Which model each draw comes from, in draw order.
+        let order = renderers.flatMap { renderer -> [ObjectIdentifier] in
+            let plan = renderer.drawPlan(cameraPosition: eye)
+            let merged = [plan.mergedStatic?.geometry, plan.mergedTransmissive?.geometry, plan.mergedSkinned?.geometry].compactMap(\.self)
+            let count = merged.count + plan.opaqueGroups.flatMap(\.draws).count + plan.blendedRuns.flatMap(\.draws).count
+            return Array(repeating: ObjectIdentifier(renderer.model), count: count)
+        }
+        #expect(order == [ObjectIdentifier(second), ObjectIdentifier(first)])
+    }
+
     @Test func severalItemsDrawOpaqueThenBlendedRuns() throws {
         let blended = try models.material(color: [1, 1, 1, 0.5], blended: true)
         let first = try models.model([([0, 0, -4], blended), ([0, 0, 0], models.material())])
@@ -314,6 +341,6 @@ struct SceneOrderingTests {
         let renderers = PBRScene.renderers(items, cameraPosition: [0, 0, 10]) { item in
             PBRRenderer(model: item.model, viewMatrix: matrix_identity_float4x4, projectionMatrix: matrix_identity_float4x4)
         }
-        #expect(renderers.map(\.phase) == [.opaque, .opaque, .blended([first.blendedBatches[0].id]), .blended([second.blendedBatches[0].id])])
+        #expect(renderers.map(\.phase) == [.opaque, .opaque, .blended([.init(id: first.blendedBatches[0].id, coverage: false)]), .blended([.init(id: second.blendedBatches[0].id, coverage: false)])])
     }
 }

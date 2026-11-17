@@ -42,6 +42,18 @@ extension PBRModel.MaterialOverrides {
     }
 }
 
+extension PBRModel {
+    /// Where `batch` is drawn with `pose` (nil: at rest), placed by `modelMatrix`.
+    func worldBounds(of batch: Batch, pose: PBRPose?, modelMatrix: simd_float4x4) -> BoundingBox3D {
+        (pose.map { worldBounds(of: batch, pose: $0) } ?? batch.worldBounds).transformedKeepingEmpty(by: modelMatrix)
+    }
+}
+
+extension PBRMaterial {
+    /// Drawn by the transmission pre-pass's back-face stage.
+    var hasTransmissiveBackFaces: Bool { isTransmissive && doubleSided }
+}
+
 extension PBRModel.Batch {
     /// The material this batch is drawn with.
     func material(overrides: PBRModel.MaterialOverrides) -> PBRMaterial {

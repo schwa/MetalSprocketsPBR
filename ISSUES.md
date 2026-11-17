@@ -614,12 +614,13 @@ Found by code review; nothing here was built or run.
 ## 30: Frame composition across models is spread over PBRScene, PBRImmersiveScene, PBRTransmissionPass and PBRRenderer flags
 
 +++
-status: open
+status: closed
 priority: medium
 kind: task
 labels: architecture, refactor, effort:l, area:rendering
 created: 2026-11-17T13:26:31Z
-updated: 2026-11-17T13:27:19Z
+updated: 2026-11-17T13:33:59Z
+closed: 2026-11-17T13:33:59Z
 +++
 
 One frame with several models, a transmission pre-pass or stereo is planned by copying and reconfiguring PBRRenderer values (drawing, prePass, viewing). What remains after #2:
@@ -637,7 +638,12 @@ Constraint: no public API changes.
 
 Found by code review; nothing here was built or run.
 
-- `2026-11-17T13:27:19Z`: Related: #29 (per-batch decisions in the plan), #31 (stereo resolution).
+\- `2026-11-17T13:27:19Z`: Related: #29 (per-batch decisions in the plan), #31 (stereo resolution).
+\- `2026-11-17T13:33:59Z`: Fixed: the suspected stereo bug is real and is fixed. With several items in stereo, transmissive batches drawn as coverage (which write depth) were drawn by their item's opaque-phase renderer, before later items' opaque batches. They now join the shared back-to-front order of the blended phase (DrawPhase.blended carries SortedBatch entries that mark coverage batches, since opaque and blended batch IDs overlap). Red-first test: SceneOrderingTests.stereoCoverageGlassDrawsAfterEveryItemsOpaqueBatches.
+
+Also: posed bounds for sorting/culling are one rule (PBRModel.worldBounds(of:pose:modelMatrix:)) used by both PBRDrawPlan and PBRScene.blendedRuns; the transmission-pass decision is PBRScene.needsTransmissionPass, used by PBRScene and PBRImmersiveScene; the back-face rule is PBRMaterial.hasTransmissiveBackFaces, used by the plan and PBRTransmissionPass (which still scans batches rather than reading a plan, as the pass has no plan of its own).
+
+Not done here: per-renderer PBRFrameBindings rebuilds, filed as a follow-up. PBRImmersiveScene compiles only for visionOS and xcb builds this package for macOS only, so that one-line change was not compiled.
 
 ---
 
@@ -712,5 +718,25 @@ Constraint: no public API changes.
 Found by code review; nothing here was built or run.
 
 - `2026-11-17T13:27:19Z`: Related: #32 (target caches make targets on the default device).
+
+---
+
+## 34: Each PBRRenderer copy in a multi-model or pre-pass frame rebuilds the frame bindings
+
++++
+status: new
+priority: low
+kind: task
+labels: area:rendering, effort:m
+created: 2026-11-17T13:33:59Z
++++
+
+Split out of #30.
+
+PBRScene, PBRImmersiveScene and PBRTransmissionPass draw one frame with several PBRRenderer values: one per item for the opaque phase, one per blended run, and again for each transmission pre-pass stage. Each one builds its own PBRFrameBindings (lights array, environment, shadow and occlusion bindings) in content(), though those inputs are the same for every renderer in the frame except for the transmission scene and debug flags.
+
+Not measured; found by code review.
+
+- `2026-11-17T13:34:03Z`: Split out of #30.
 
 ---
