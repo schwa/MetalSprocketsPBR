@@ -533,3 +533,182 @@ PBRMaterialUniforms.resolved and PBRMaterial.resourceBuffer are also internal, s
 Seen in SceneSprocketsAddOns #41 and #45.
 
 ---
+
+## 27: Environment builds block the calling thread until the GPU finishes
+
++++
+status: open
+priority: low
+kind: enhancement
+labels: effort:s, area:concurrency
+created: 2026-11-17T13:24:34Z
+updated: 2026-11-17T13:27:19Z
++++
+
+Building a PBREnvironment waits synchronously for its GPU work (commandBuffer.waitUntilCompleted() in PBREnvironment.swift).
+
+Two places this lands on a thread that should not block:
+
+- PBRRoomLighting.receiveUpdates builds an environment per probe update inside an async function, so each rebuild blocks a cooperative-pool thread for the whole prefilter. Throttled by minimumInterval (default 1 s), one at a time.
+- PBREnvironment.studio is built on first access. It is the default argument of PBRLighting.init, so the first PBRLighting() often builds it on the main thread.
+
+Expected: environment builds do not block a cooperative-pool thread or the main thread.
+
+No measured hitch or starvation yet; found by code review.
+
+---
+
+## 28: PBRShadows and PBRAmbientOcclusion are @unchecked Sendable with no stated reason
+
++++
+status: open
+priority: low
+kind: task
+labels: effort:xs, area:concurrency
+created: 2026-11-17T13:24:34Z
+updated: 2026-11-17T13:27:19Z
++++
+
+In PBRLighting.swift, PBRShadows and PBRAmbientOcclusion are declared @unchecked Sendable without a comment saying why that is safe. Every other @unchecked Sendable and nonisolated(unsafe) in the package states its justification.
+
+Expected: each unchecked conformance says why it is safe.
+
+No known race; found by code review.
+
+---
+
+## 29: Per-batch draw decisions are made in PBRRenderer, not PBRDrawPlan
+
++++
+status: open
+priority: medium
+kind: task
+labels: architecture, refactor, effort:l, area:rendering
+created: 2026-11-17T13:26:30Z
+updated: 2026-11-17T13:27:19Z
++++
+
+PBRDrawPlan says planning is pure and the renderer only turns a plan into elements. That holds for merged draws. For per-batch draws the plan only groups batches; PBRRenderer.draw, morphedDraw and instances(of:) decide the rest inside element code:
+
+- hidden-node filtering, and the unmirrored/mirrored instance ranges with their winding
+- cull mode per transmission pre-pass stage, and fill mode
+- unlit points and lines, and the drawsTrianglesOnly skip
+- morph weight fallback (pose, else the node's rest weights)
+
+The merged path makes the equivalent decisions in the plan (visible, doubleSided, instances), so the two paths decide the same things in different layers. #1 moved the shared rules into PBRFrameRules.swift but left where they are applied split.
+
+These per-batch decisions cannot be asserted in DrawPlanTests; they are only reachable through GPU renders (RenderTests, MergedRenderTests).
+
+Suspected, not verified: the plan does not know about drawsTrianglesOnly, so an opaque group or blended run holding only point or line batches still gets a pipeline whose draws are all skipped.
+
+Constraint: no public API changes.
+
+Found by code review; nothing here was built or run.
+
+- `2026-11-17T13:27:19Z`: Related: #30 (frame composition builds on the per-batch plan).
+
+---
+
+## 30: Frame composition across models is spread over PBRScene, PBRImmersiveScene, PBRTransmissionPass and PBRRenderer flags
+
++++
+status: open
+priority: medium
+kind: task
+labels: architecture, refactor, effort:l, area:rendering
+created: 2026-11-17T13:26:31Z
+updated: 2026-11-17T13:27:19Z
++++
+
+One frame with several models, a transmission pre-pass or stereo is planned by copying and reconfiguring PBRRenderer values (drawing, prePass, viewing). What remains after #2:
+
+- PBRScene.blendedRuns repeats PBRDrawPlan's posed-bounds and distance-to-camera computation for blended batches.
+- The decision to make a transmission target (a model has transmission and the debug view is lit) is written in both PBRScene.content and PBRImmersiveScene.body.
+- PBRTransmissionPass.content rescans every batch of every renderer for hasBackFaces instead of reading it from a plan.
+- Each renderer copy builds its own PBRFrameBindings and PBRDrawPlan; with several items, a renderer is made per opaque phase, per blended run and again for the pre-pass stages.
+
+Pass and draw order across items, stereo and pre-pass stages has no single value to test; the four scene tests at the end of DrawPlanTests check pieces of it.
+
+Suspected, not verified: in stereo with several items, an item's transmissive batches drawn as coverage are drawn by that item's .opaque phase renderer and write depth, so they are drawn before later items' opaque batches, which are then depth-rejected behind that glass.
+
+Constraint: no public API changes.
+
+Found by code review; nothing here was built or run.
+
+- `2026-11-17T13:27:19Z`: Related: #29 (per-batch decisions in the plan), #31 (stereo resolution).
+
+---
+
+## 31: Mono and stereo views are two representations that every element resolves itself
+
++++
+status: open
+priority: low
+kind: task
+labels: architecture, refactor, effort:m, area:rendering
+created: 2026-11-17T13:26:31Z
+updated: 2026-11-17T13:27:19Z
++++
+
+PBRRenderer and PBREnvironmentBackground each hold viewMatrix and projectionMatrix plus an optional stereo, and each resolves 'stereo?.x ?? [mono]' itself (viewProjections, cameraPositions, inverse view-projections). PBRTransmissionPass and PBRImmersiveScene do the same through renderer.stereo.
+
+- The 'between the eyes' camera average (cameraPositions.reduce(.zero, +) / count) is written in PBRRenderer.content and PBRImmersiveScene.body.
+- 'stereo != nil' also stands in for three unrelated policies in PBRRenderer: transmissionAsCoverage, writesBlendedDepth, and no screen-space ambient occlusion.
+
+Constraint: no public API changes.
+
+Found by code review; nothing here was built or run.
+
+- `2026-11-17T13:27:19Z`: Related: #30.
+
+---
+
+## 32: Shared shaders, placeholders and render targets always use the system default device
+
++++
+status: open
+priority: low
+kind: bug
+labels: architecture, effort:m, area:rendering
+created: 2026-11-17T13:26:31Z
+updated: 2026-11-17T13:27:19Z
++++
+
+PBRModelBuilder, PBRGeometryBuilder and PBREnvironment take an MTLDevice. The rest of the renderer does not:
+
+- PBRShaders.make (shader library, samplers, placeholder textures) calls _MTLCreateSystemDefaultDevice() and is cached once per process.
+- PBRUpscaleTargets.init calls _MTLCreateSystemDefaultDevice().
+- PBRTransmissionTargetCache makes its PBRTransmissionTarget with no device, so the default one.
+
+A model or environment built on another device is drawn with shaders, placeholders and targets from the default device. Nothing checks or reports the mismatch.
+
+Expected: the resources one frame draws with come from one device.
+
+Constraint: no public API changes.
+
+Found by code review; nothing here was built or run.
+
+- `2026-11-17T13:27:19Z`: Related: #33.
+
+---
+
+## 33: Three cache types for one keyed render-target cache
+
++++
+status: open
+priority: low
+kind: task
+labels: architecture, refactor, effort:xs, area:rendering
+created: 2026-11-17T13:26:31Z
+updated: 2026-11-17T13:27:19Z
++++
+
+PBRRenderTargets.swift has PBRKeyedCache plus PBRUpscaleTargetCache and PBRTransmissionTargetCache. The last two each wrap a PBRKeyedCache with a private Key struct and one method that builds the key and calls value(for:make:); their interface is about as large as what they hide. RenderTargetTests tests the wrappers rather than the caching rule.
+
+Constraint: no public API changes.
+
+Found by code review; nothing here was built or run.
+
+- `2026-11-17T13:27:19Z`: Related: #32 (target caches make targets on the default device).
+
+---
