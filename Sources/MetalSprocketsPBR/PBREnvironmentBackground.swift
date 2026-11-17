@@ -45,7 +45,7 @@ public struct PBREnvironmentBackground: Element {
     }
 
     func content() throws -> some Element {
-        let shaders = try PBRShaders.shared()
+        let shaders = try PBRShaders.shared(device: environment.source.device)
         let inverseViewProjections = zip(stereo?.projectionMatrices ?? [projectionMatrix], stereo?.viewMatrices ?? [viewMatrix]).map { projection, view in
             var rotationOnly = view
             rotationOnly.columns.3 = [0, 0, 0, 1]

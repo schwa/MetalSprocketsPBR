@@ -1,4 +1,5 @@
 import GeometryLite3D
+import Metal
 import MetalSprocketsPBRShaders
 import simd
 
@@ -43,6 +44,9 @@ extension PBRModel.MaterialOverrides {
 }
 
 extension PBRModel {
+    /// The device the model's buffers and textures were made on; every resource drawn with it must be too.
+    var device: MTLDevice { resourceCollection.device }
+
     /// Where `batch` is drawn with `pose` (nil: at rest), placed by `modelMatrix`.
     func worldBounds(of batch: Batch, pose: PBRPose?, modelMatrix: simd_float4x4) -> BoundingBox3D {
         (pose.map { worldBounds(of: batch, pose: $0) } ?? batch.worldBounds).transformedKeepingEmpty(by: modelMatrix)

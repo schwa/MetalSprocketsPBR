@@ -674,12 +674,13 @@ Found by code review; nothing here was built or run.
 ## 32: Shared shaders, placeholders and render targets always use the system default device
 
 +++
-status: open
+status: closed
 priority: low
 kind: bug
 labels: architecture, effort:m, area:rendering
 created: 2026-11-17T13:26:31Z
-updated: 2026-11-17T13:27:19Z
+updated: 2026-11-17T13:35:19Z
+closed: 2026-11-17T13:35:19Z
 +++
 
 PBRModelBuilder, PBRGeometryBuilder and PBREnvironment take an MTLDevice. The rest of the renderer does not:
@@ -697,6 +698,7 @@ Constraint: no public API changes.
 Found by code review; nothing here was built or run.
 
 - `2026-11-17T13:27:19Z`: Related: #33.
+- `2026-11-17T13:35:19Z`: Shared shaders and placeholders are made per device (PBRShaders.shared(device:)); PBRRenderer uses the model's device, PBRFrameBindings and PBREnvironmentBackground the environment's, and PBRScene/PBRImmersiveScene make transmission and upscale targets on the first item's model device (the caches key on device). PBRRenderer now stops with a precondition when the model and lighting environment are on different devices. No red-first test: this Mac has one GPU, so a second device cannot be made; RenderTargetTests.sharedResourcesAreMadeOnTheGivenDevice checks resources follow the given device.
 
 ---
 

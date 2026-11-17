@@ -64,8 +64,7 @@ struct PBRUpscaleTargets {
     var output: MTLTexture
     var resources: ResourceCollection
 
-    init(upscaling: PBRUpscaling, outputSize: PBRTargetSize) throws {
-        let device = _MTLCreateSystemDefaultDevice()
+    init(upscaling: PBRUpscaling, outputSize: PBRTargetSize, device: MTLDevice) throws {
         let inputSize = outputSize.scaled(by: upscaling.scale)
         color = try device.makeTargetTexture(upscaling.colorPixelFormat, size: inputSize, usage: [.renderTarget, .shaderRead], label: "PBR Upscale Input")
         depth = try device.makeTargetTexture(upscaling.depthPixelFormat, size: inputSize, usage: [.renderTarget], label: "PBR Upscale Depth")
@@ -82,14 +81,15 @@ final class PBRUpscaleTargetCache {
     private struct Key: Equatable {
         var upscaling: PBRUpscaling
         var size: PBRTargetSize
+        var device: ObjectIdentifier
     }
 
     private let cache = PBRKeyedCache<Key, PBRUpscaleTargets>()
 
-    func targets(for upscaling: PBRUpscaling, outputSize: CGSize) throws -> PBRUpscaleTargets {
+    func targets(for upscaling: PBRUpscaling, outputSize: CGSize, device: MTLDevice) throws -> PBRUpscaleTargets {
         let size = PBRTargetSize(outputSize)
-        return try cache.value(for: Key(upscaling: upscaling, size: size)) {
-            try PBRUpscaleTargets(upscaling: upscaling, outputSize: size)
+        return try cache.value(for: Key(upscaling: upscaling, size: size, device: ObjectIdentifier(device))) {
+            try PBRUpscaleTargets(upscaling: upscaling, outputSize: size, device: device)
         }
     }
 }
@@ -99,16 +99,17 @@ final class PBRTransmissionTargetCache {
     private struct Key: Equatable {
         var size: PBRTargetSize
         var viewCount: Int
+        var device: ObjectIdentifier
     }
 
     private let cache = PBRKeyedCache<Key, PBRTransmissionTarget>()
 
     var target: PBRTransmissionTarget? { cache.value }
 
-    func target(width: Int, height: Int, viewCount: Int = 1) throws -> PBRTransmissionTarget {
+    func target(width: Int, height: Int, viewCount: Int = 1, device: MTLDevice) throws -> PBRTransmissionTarget {
         let size = PBRTargetSize(width: width, height: height)
-        return try cache.value(for: Key(size: size, viewCount: max(viewCount, 1))) {
-            try PBRTransmissionTarget(width: size.width, height: size.height, viewCount: viewCount)
+        return try cache.value(for: Key(size: size, viewCount: max(viewCount, 1), device: ObjectIdentifier(device))) {
+            try PBRTransmissionTarget(device: device, width: size.width, height: size.height, viewCount: viewCount)
         }
     }
 }

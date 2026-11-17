@@ -1,3 +1,4 @@
+import Foundation
 import GeometryLite3D
 import Metal
 import MetalSprockets
@@ -96,7 +97,9 @@ public struct PBRRenderer: Element {
     }
 
     func content() throws -> some Element {
-        let shaders = try PBRShaders.shared()
+        let device = model.device
+        precondition(lighting.environment.source.device === device, "The model and the lighting environment must be on one device")
+        let shaders = try PBRShaders.shared(device: device)
         let viewProjections = self.viewProjections
         let cameraPositions = self.cameraPositions
         let transmissionScene: MTLTexture? = switch prePassStage {
@@ -393,8 +396,8 @@ public struct PBRFrameBindings {
     /// scene, so transmissive materials refract the environment.
     public init(lighting: PBRLighting, viewProjections: [simd_float4x4], cameraPositions: [SIMD3<Float>], debugView: PBRDebugView = .lit, usesAmbientOcclusion: Bool = true) throws {
         precondition(!viewProjections.isEmpty && viewProjections.count == cameraPositions.count, "One camera position per view")
-        let shaders = try PBRShaders.shared()
         let environment = lighting.environment
+        let shaders = try PBRShaders.shared(device: environment.source.device)
         let ambientOcclusion = usesAmbientOcclusion ? lighting.ambientOcclusion : nil
         var frame = PBRFrameUniforms()
         frame.cameraPositions = viewPair(cameraPositions)
@@ -458,11 +461,33 @@ struct PBRShaders {
     var placeholderOcclusion: MTLTexture
     var shadowSampler: MTLSamplerState
 
-    // A static let is initialized once, thread-safely. Renderers are built on several threads. Immutable after creation.
-    nonisolated(unsafe) private static let cached = Result { try make() }
+    private static let cache = Cache()
 
-    static func shared() throws -> Self {
-        try cached.get()
+    /// The shaders and placeholders for `device`, made once per device.
+    static func shared(device: MTLDevice) throws -> Self {
+        try cache.shaders(for: device)
+    }
+
+    // @unchecked: Metal objects are not Sendable, so Mutex cannot hold them; `lock` guards `entries`, the only state,
+    // and the shaders are never changed after they are made. Renderers are built on several threads.
+    private final class Cache: @unchecked Sendable {
+        private let lock = NSLock()
+        private var entries: [ObjectIdentifier: PBRShaders] = [:]
+
+        func shaders(for device: MTLDevice) throws -> PBRShaders {
+            let key = ObjectIdentifier(device)
+            if let cached = lock.withLock({ entries[key] }) {
+                return cached
+            }
+            let made = try PBRShaders.make(device: device)
+            return lock.withLock {
+                if let raced = entries[key] {
+                    return raced
+                }
+                entries[key] = made
+                return made
+            }
+        }
     }
 
     func vertexShader(_ variant: VertexVariant) -> VertexShader {
@@ -474,9 +499,8 @@ struct PBRShaders {
         }
     }
 
-    private static func make() throws -> Self {
-        let device = _MTLCreateSystemDefaultDevice()
-        let library = try ShaderLibrary(bundle: .metalSprocketsPBRShaders())
+    private static func make(device: MTLDevice) throws -> Self {
+        let library = try ShaderLibrary(bundle: .metalSprocketsPBRShaders(), device: device)
         let pbr = library.namespaced("PBR")
         let ibl = library.namespaced("PBRIBL")
 

@@ -112,11 +112,14 @@ public struct PBRScene: Element {
         }
     }
 
+    /// The device every item's model is on; targets and shared resources are made on it.
+    var device: MTLDevice { items[0].model.device }
+
     func content() throws -> some Element {
         let lighting = lighting ?? PBRLighting(lights: items.flatMap(\.model.lights))
-        let upscale = try upscaling.flatMap { try upscaleTargets.targets(for: $0, outputSize: viewportSize) }
+        let upscale = try upscaling.flatMap { try upscaleTargets.targets(for: $0, outputSize: viewportSize, device: device) }
         let renderSize = upscale.map { CGSize(width: $0.color.width, height: $0.color.height) } ?? viewportSize
-        let target = Self.needsTransmissionPass(items, debugView: debugView) ? try transmissionTargets.target(width: Int(renderSize.width), height: Int(renderSize.height)) : nil
+        let target = Self.needsTransmissionPass(items, debugView: debugView) ? try transmissionTargets.target(width: Int(renderSize.width), height: Int(renderSize.height), device: device) : nil
         return try Group {
             if let target {
                 transmissionPass(lighting: lighting, target: target)
@@ -134,7 +137,7 @@ public struct PBRScene: Element {
 
     /// The main pass into the low-resolution targets, MetalFX upscaling, and a copy into the current target.
     private func upscaledPasses(lighting: PBRLighting, target: PBRTransmissionTarget?, upscale: PBRUpscaleTargets) throws -> some Element {
-        let shaders = try PBRShaders.shared()
+        let shaders = try PBRShaders.shared(device: device)
         let lowResolution: (MTL4RenderPassDescriptor) -> Void = { descriptor in
             descriptor.colorAttachments[0].texture = upscale.color
             descriptor.colorAttachments[0].resolveTexture = nil
