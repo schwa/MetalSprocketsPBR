@@ -711,12 +711,13 @@ Found by code review; nothing here was built or run.
 ## 33: Three cache types for one keyed render-target cache
 
 +++
-status: open
+status: closed
 priority: low
 kind: task
 labels: architecture, refactor, effort:xs, area:rendering
 created: 2026-11-17T13:26:31Z
-updated: 2026-11-17T13:27:19Z
+updated: 2026-11-17T13:37:28Z
+closed: 2026-11-17T13:37:28Z
 +++
 
 PBRRenderTargets.swift has PBRKeyedCache plus PBRUpscaleTargetCache and PBRTransmissionTargetCache. The last two each wrap a PBRKeyedCache with a private Key struct and one method that builds the key and calls value(for:make:); their interface is about as large as what they hide. RenderTargetTests tests the wrappers rather than the caching rule.
@@ -726,6 +727,7 @@ Constraint: no public API changes.
 Found by code review; nothing here was built or run.
 
 - `2026-11-17T13:27:19Z`: Related: #32 (target caches make targets on the default device).
+- `2026-11-17T13:37:28Z`: PBRKeyedCache, PBRUpscaleTargetCache and PBRTransmissionTargetCache are replaced by one PBRTargetCache<Target> over a small PBRCachedTarget protocol: each target type declares its Key (size, view count, device...) and init(key:). Call sites pass a key.
 
 ---
 

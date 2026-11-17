@@ -27,7 +27,7 @@ public struct PBRImmersiveScene: Element {
     public var showsBackground = false
     public var debugView: PBRDebugView = .lit
 
-    @MSState private var transmissionTargets = PBRTransmissionTargetCache()
+    @MSState private var transmissionTargets = PBRTargetCache<PBRTransmissionTarget>()
 
     public init(items: [PBRScene.Item], context: ImmersiveContext, lighting: PBRLighting? = nil) {
         precondition(!items.isEmpty, "A scene draws at least one model")
@@ -55,7 +55,7 @@ public struct PBRImmersiveScene: Element {
             // Debug views do not show what is behind glass, so they skip the pre-pass. The target matches an eye's
             // view in the compositor's texture.
             let viewport = stereo.viewports[0]
-            let target = PBRScene.needsTransmissionPass(items, debugView: debugView) ? try transmissionTargets.target(width: Int(viewport.width), height: Int(viewport.height), viewCount: viewCount, device: items[0].model.device) : nil
+            let target = PBRScene.needsTransmissionPass(items, debugView: debugView) ? try transmissionTargets.target(for: .init(width: Int(viewport.width), height: Int(viewport.height), viewCount: viewCount, device: items[0].model.device)) : nil
             func renderer(_ item: PBRScene.Item) -> PBRRenderer {
                 var renderer = PBRRenderer(model: item.model, viewMatrix: stereo.viewMatrices[0], projectionMatrix: stereo.projectionMatrices[0], modelMatrix: item.modelMatrix, lighting: lighting, pose: item.pose, transmissionTarget: target)
                 renderer.stereo = stereo

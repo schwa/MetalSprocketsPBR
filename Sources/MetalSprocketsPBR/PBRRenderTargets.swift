@@ -42,33 +42,57 @@ extension MTLDevice {
     }
 }
 
-/// One value kept across frames, remade when its key changes (e.g. the viewport size).
-final class PBRKeyedCache<Key: Equatable, Value> {
-    private var entry: (key: Key, value: Value)?
+/// A target made for a key, such as a size; ``PBRTargetCache`` makes a new one when the key changes.
+protocol PBRCachedTarget {
+    associatedtype Key: Equatable
+    init(key: Key) throws
+}
 
-    var value: Value? { entry?.value }
+/// One target kept across frames, remade when its key changes (e.g. the viewport size).
+final class PBRTargetCache<Target: PBRCachedTarget> {
+    private var entry: (key: Target.Key, target: Target)?
 
-    func value(for key: Key, make: () throws -> Value) rethrows -> Value {
+    var target: Target? { entry?.target }
+
+    func target(for key: Target.Key) throws -> Target {
         if let entry, entry.key == key {
-            return entry.value
+            return entry.target
         }
-        let value = try make()
-        entry = (key, value)
-        return value
+        let target = try Target(key: key)
+        entry = (key, target)
+        return target
     }
 }
 
-struct PBRUpscaleTargets {
+/// Low-resolution and upscaled targets for MetalFX spatial upscaling.
+struct PBRUpscaleTargets: PBRCachedTarget {
+    struct Key: Equatable {
+        var upscaling: PBRUpscaling
+        var outputSize: PBRTargetSize
+        var device: MTLDevice
+
+        init(upscaling: PBRUpscaling, outputSize: CGSize, device: MTLDevice) {
+            self.upscaling = upscaling
+            self.outputSize = PBRTargetSize(outputSize)
+            self.device = device
+        }
+
+        static func == (lhs: Self, rhs: Self) -> Bool {
+            lhs.upscaling == rhs.upscaling && lhs.outputSize == rhs.outputSize && lhs.device === rhs.device
+        }
+    }
+
     var color: MTLTexture
     var depth: MTLTexture
     var output: MTLTexture
     var resources: ResourceCollection
 
-    init(upscaling: PBRUpscaling, outputSize: PBRTargetSize, device: MTLDevice) throws {
-        let inputSize = outputSize.scaled(by: upscaling.scale)
-        color = try device.makeTargetTexture(upscaling.colorPixelFormat, size: inputSize, usage: [.renderTarget, .shaderRead], label: "PBR Upscale Input")
-        depth = try device.makeTargetTexture(upscaling.depthPixelFormat, size: inputSize, usage: [.renderTarget], label: "PBR Upscale Depth")
-        output = try device.makeTargetTexture(upscaling.colorPixelFormat, size: outputSize, usage: [.renderTarget, .shaderRead, .shaderWrite], label: "PBR Upscale Output")
+    init(key: Key) throws {
+        let device = key.device
+        let inputSize = key.outputSize.scaled(by: key.upscaling.scale)
+        color = try device.makeTargetTexture(key.upscaling.colorPixelFormat, size: inputSize, usage: [.renderTarget, .shaderRead], label: "PBR Upscale Input")
+        depth = try device.makeTargetTexture(key.upscaling.depthPixelFormat, size: inputSize, usage: [.renderTarget], label: "PBR Upscale Depth")
+        output = try device.makeTargetTexture(key.upscaling.colorPixelFormat, size: key.outputSize, usage: [.renderTarget, .shaderRead, .shaderWrite], label: "PBR Upscale Output")
         resources = try ResourceCollection(device: device)
         for texture in [color, depth, output] {
             try resources.register(texture)
@@ -76,40 +100,24 @@ struct PBRUpscaleTargets {
     }
 }
 
-/// Low-resolution and upscaled targets for the current size and settings, recreated when they change.
-final class PBRUpscaleTargetCache {
-    private struct Key: Equatable {
-        var upscaling: PBRUpscaling
-        var size: PBRTargetSize
-        var device: ObjectIdentifier
-    }
-
-    private let cache = PBRKeyedCache<Key, PBRUpscaleTargets>()
-
-    func targets(for upscaling: PBRUpscaling, outputSize: CGSize, device: MTLDevice) throws -> PBRUpscaleTargets {
-        let size = PBRTargetSize(outputSize)
-        return try cache.value(for: Key(upscaling: upscaling, size: size, device: ObjectIdentifier(device))) {
-            try PBRUpscaleTargets(upscaling: upscaling, outputSize: size, device: device)
-        }
-    }
-}
-
-/// A transmission target for the current viewport size, recreated when the size changes.
-final class PBRTransmissionTargetCache {
-    private struct Key: Equatable {
+extension PBRTransmissionTarget: PBRCachedTarget {
+    struct Key: Equatable {
         var size: PBRTargetSize
         var viewCount: Int
-        var device: ObjectIdentifier
+        var device: MTLDevice
+
+        init(width: Int, height: Int, viewCount: Int = 1, device: MTLDevice) {
+            size = PBRTargetSize(width: width, height: height)
+            self.viewCount = max(viewCount, 1)
+            self.device = device
+        }
+
+        static func == (lhs: Self, rhs: Self) -> Bool {
+            lhs.size == rhs.size && lhs.viewCount == rhs.viewCount && lhs.device === rhs.device
+        }
     }
 
-    private let cache = PBRKeyedCache<Key, PBRTransmissionTarget>()
-
-    var target: PBRTransmissionTarget? { cache.value }
-
-    func target(width: Int, height: Int, viewCount: Int = 1, device: MTLDevice) throws -> PBRTransmissionTarget {
-        let size = PBRTargetSize(width: width, height: height)
-        return try cache.value(for: Key(size: size, viewCount: max(viewCount, 1), device: ObjectIdentifier(device))) {
-            try PBRTransmissionTarget(device: device, width: size.width, height: size.height, viewCount: viewCount)
-        }
+    convenience init(key: Key) throws {
+        try self.init(device: key.device, width: key.size.width, height: key.size.height, viewCount: key.viewCount)
     }
 }

@@ -64,8 +64,8 @@ public struct PBRScene: Element {
     /// and keep the view's sample count at 1.
     public var upscaling: PBRUpscaling?
 
-    @MSState private var transmissionTargets = PBRTransmissionTargetCache()
-    @MSState private var upscaleTargets = PBRUpscaleTargetCache()
+    @MSState private var transmissionTargets = PBRTargetCache<PBRTransmissionTarget>()
+    @MSState private var upscaleTargets = PBRTargetCache<PBRUpscaleTargets>()
 
     /// Several models in one scene.
     public init(items: [Item], viewMatrix: simd_float4x4, projectionMatrix: simd_float4x4, lighting: PBRLighting? = nil, showsBackground: Bool = false, viewportSize: CGSize) {
@@ -117,9 +117,9 @@ public struct PBRScene: Element {
 
     func content() throws -> some Element {
         let lighting = lighting ?? PBRLighting(lights: items.flatMap(\.model.lights))
-        let upscale = try upscaling.flatMap { try upscaleTargets.targets(for: $0, outputSize: viewportSize, device: device) }
+        let upscale = try upscaling.flatMap { try upscaleTargets.target(for: .init(upscaling: $0, outputSize: viewportSize, device: device)) }
         let renderSize = upscale.map { CGSize(width: $0.color.width, height: $0.color.height) } ?? viewportSize
-        let target = Self.needsTransmissionPass(items, debugView: debugView) ? try transmissionTargets.target(width: Int(renderSize.width), height: Int(renderSize.height), device: device) : nil
+        let target = Self.needsTransmissionPass(items, debugView: debugView) ? try transmissionTargets.target(for: .init(width: Int(renderSize.width), height: Int(renderSize.height), device: device)) : nil
         return try Group {
             if let target {
                 transmissionPass(lighting: lighting, target: target)
