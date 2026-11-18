@@ -839,5 +839,6 @@ Needed before deciding:
 - `2026-11-18T01:22:32Z`: Existing MetalSprockets data (from its issues, not re-measured): the only profile (GLTFViewer, MetalSprockets#479) showed reconciliation (diffing the element tree each frame) as the hot spot, not argument-table binding (#476, binding never profiled). A static 1000-cube scene spends about 1.75 ms per frame in Update in Release because closure-holding draws never compare equal (#519). In the Cubes benchmark, ParameterModifier.workloadEnter was about 15% of Workload; workload CPU went 7.2 to about 6.8 ms (#513; Debug or Release not stated).
 - `2026-11-18T01:22:32Z`: Not measured: tree building (body evaluation) on its own, scaling past 1000 draws, and SceneSprockets' real scenes.
 - `2026-11-18T01:22:32Z`: MetalSprockets#519 (reuse unchanged draw subtrees via Equatable payloads, #521-#523) targets the reconciliation cost directly; its outcome bears on whether merging is still needed.
+- `2026-11-18T18:13:36Z`: Tracked in SceneSprockets as #545.
 
 ---
