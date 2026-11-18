@@ -12,7 +12,7 @@ public struct PBRModelBuilder {
     /// Node transforms and morph weights at rest; instances without an explicit world matrix are placed by it.
     public var restPose: PBRPose
     public var skins: [PBRModel.Skin] = []
-    public var lights: [PBRLight] = []
+    public var lights: [LightingLight] = []
     /// Materials to keep resident even if no instance uses them (e.g. ones a pose may switch to).
     public var residentMaterials: [PBRMaterial] = []
     /// Primitives to keep resident even if no instance uses them.

@@ -85,10 +85,10 @@ struct DrawPlanTests {
     }
 
     @Test func customRenderStatesSplitPipelinesAndSkipMerging() throws {
-        let plain = try models.material(color: [1, 0, 0, 1])
-        let wire = try models.material(color: [0, 1, 0, 1]).with(renderState: PBRRenderState(fillMode: .lines))
-        let additive = try models.material(color: [0, 0, 1, 1]).with(renderState: PBRRenderState(blendMode: .additive))
-        let model = try models.model([([-1, 0, 0], plain), ([-1, 1, 0], try models.material(color: [1, 1, 0, 1])), ([1, 0, 0], wire), (.zero, additive)])
+        let plain = models.material(color: [1, 0, 0, 1])
+        let wire = models.material(color: [0, 1, 0, 1]).with(renderState: PBRRenderState(fillMode: .lines))
+        let additive = models.material(color: [0, 0, 1, 1]).with(renderState: PBRRenderState(blendMode: .additive))
+        let model = try models.model([([-1, 0, 0], plain), ([-1, 1, 0], models.material(color: [1, 1, 0, 1])), ([1, 0, 0], wire), (.zero, additive)])
         #expect(model.merged?.records.count == 2, "Only the default render state merges")
         #expect(model.blendedBatches.count == 1, "A blend mode makes an opaque alpha mode blended")
         let plan = plan(model)
@@ -99,8 +99,8 @@ struct DrawPlanTests {
         #expect(!plain.canOverride(wire))
     }
 
-    @Test func renderStateResolvesDepthWrites() throws {
-        let material = try models.material(color: [1, 0, 0, 1], blended: true)
+    @Test func renderStateResolvesDepthWrites() {
+        let material = models.material(color: [1, 0, 0, 1], blended: true)
         #expect(PBRPipelineState(material, writesBlendedDepth: false).depthWrite == false)
         #expect(PBRPipelineState(material, writesBlendedDepth: true).depthWrite == true, "Stereo writes blended depth")
         #expect(PBRPipelineState(material.with(renderState: PBRRenderState(depthWrite: .enabled)), writesBlendedDepth: false).depthWrite == true)
@@ -154,7 +154,7 @@ struct DrawPlanTests {
 
     @Test func overridesReplaceMergedMaterials() throws {
         let model = try twoOpaqueQuads()
-        let replacement = try models.material(color: [0, 0, 1, 1])
+        let replacement = models.material(color: [0, 0, 1, 1])
         let overrides = [models.quad.key: replacement]
         let overridden = plan(model, overrides: overrides)
         #expect(overridden.mergedStatic?.materials?.map(\.baseColorFactor) == [[0, 0, 1, 1], [0, 0, 1, 1]])
@@ -183,7 +183,7 @@ struct DrawPlanTests {
     }
 
     @Test func posedBatchesSplitInstancesByWinding() throws {
-        let material = try models.material()
+        let material = models.material()
         let worldMatrices = [simd_float4x4(translation: [-1, 0, 0]), simd_float4x4(translation: [1, 0, 0])]
         var builder = PBRModelBuilder(device: models.device, restPose: PBRPose(worldMatrices: worldMatrices))
         builder.addInstance(models.quad, material: material, node: 0)
@@ -212,21 +212,21 @@ struct DrawPlanTests {
         try geometry.add(attributes: [.init(semantic: .position, format: .float3, values: [SIMD3<Float>](repeating: .zero, count: 3))], indices: [0, 1, 2], primitiveType: .point)
         let points = try geometry.build()[0]
         var builder = PBRModelBuilder(device: models.device, restPose: PBRPose(worldMatrices: [matrix_identity_float4x4, matrix_identity_float4x4]))
-        builder.addInstance(points, material: try models.material(), node: 0)
-        builder.addInstance(models.quad, material: try models.material(), node: 1)
+        builder.addInstance(points, material: models.material(), node: 0)
+        builder.addInstance(models.quad, material: models.material(), node: 1)
         let model = try builder.build()
         let pointDraw = batchDraws(plan(model, merging: false)).first { $0.batch.primitive.primitiveType == .point }
         #expect(pointDraw?.uniforms.unlit == 1 && pointDraw?.uniforms.isPointOrLine == 1 && pointDraw?.cullMode == MTLCullMode.none)
         let trianglesOnly = plan(model, merging: false, trianglesOnly: true)
         #expect(batchDraws(trianglesOnly).map(\.batch.primitive.primitiveType) == [.triangle])
         var pointsBuilder = PBRModelBuilder(device: models.device, restPose: PBRPose(worldMatrices: [matrix_identity_float4x4]))
-        pointsBuilder.addInstance(points, material: try models.material(), node: 0)
+        pointsBuilder.addInstance(points, material: models.material(), node: 0)
         #expect(plan(try pointsBuilder.build(), merging: false, trianglesOnly: true).opaqueGroups.isEmpty, "No pipeline for points alone")
     }
 
     @Test func ordersBlendedBatchesBackToFront() throws {
-        let near = try models.material(color: [1, 0, 0, 0.5], blended: true)
-        let far = try models.material(color: [0, 1, 0, 0.5], blended: true)
+        let near = models.material(color: [1, 0, 0, 0.5], blended: true)
+        let far = models.material(color: [0, 1, 0, 0.5], blended: true)
         let model = try models.model([([0, 0, 2], near), ([0, 0, -2], far)])
         let runs = plan(model).blendedRuns
         #expect(runs.count == 1, "Same vertex variant shares a run")
@@ -241,7 +241,7 @@ struct ModelBuilderOrderTests {
     // Batch order must not depend on where materials happen to be allocated.
     @Test func opaqueBatchesFollowFirstUseOfMaterials() throws {
         let models = try TestModels()
-        let materials = try (0 ..< 8).map { index in try models.material(color: [Float(index) / 8, 0, 0, 1]) }
+        let materials = (0 ..< 8).map { index in models.material(color: [Float(index) / 8, 0, 0, 1]) }
         // Used in the reverse of allocation order, so sorting by address would reverse them.
         let used = Array(materials.reversed())
         let model = try models.model(used.enumerated().map { ([Float($0.offset), 0, 0], $0.element) })
@@ -251,8 +251,8 @@ struct ModelBuilderOrderTests {
 
     @Test func instancesSharingAMaterialStayGroupedInOrder() throws {
         let models = try TestModels()
-        let red = try models.material(color: [1, 0, 0, 1])
-        let green = try models.material(color: [0, 1, 0, 1])
+        let red = models.material(color: [1, 0, 0, 1])
+        let green = models.material(color: [0, 1, 0, 1])
         let model = try models.model([([0, 0, 0], green), ([1, 0, 0], red), ([2, 0, 0], green)])
         #expect(model.opaqueInstances.map(\.nodeIndex) == [0, 2, 1])
     }
@@ -267,7 +267,7 @@ struct SceneOrderingTests {
     }
 
     @Test func blendedRunsInterleaveItemsBackToFront() throws {
-        let blended = try models.material(color: [1, 1, 1, 0.5], blended: true)
+        let blended = models.material(color: [1, 1, 1, 0.5], blended: true)
         let first = try models.model([([0, 0, -4], blended), ([0, 0, 0], blended)])
         let second = try models.model([([0, 0, -2], blended)])
         let items = [PBRScene.Item(model: first), PBRScene.Item(model: second)]
@@ -286,11 +286,11 @@ struct SceneOrderingTests {
 
     // The pre-pass draws every renderer as configured for the main pass, in its opaque stage.
     @Test func transmissionPassKeepsRendererConfiguration() throws {
-        let glass = try models.material(transmission: 1)
+        let glass = models.material(transmission: 1)
         let first = try models.model([([0, 0, 0], glass)])
         let second = try models.model([([0, 0, -2], models.material())])
         let target = try PBRTransmissionTarget(device: models.device, width: 4, height: 4)
-        let overrides = [models.quad.key: try models.material(transmission: 0.5)]
+        let overrides = [models.quad.key: models.material(transmission: 0.5)]
         let renderers = [first, second].map { model in
             var renderer = PBRRenderer(model: model, viewMatrix: matrix_identity_float4x4, projectionMatrix: matrix_identity_float4x4, transmissionTarget: target)
             renderer.materialOverrides = overrides
@@ -306,7 +306,7 @@ struct SceneOrderingTests {
 
     // Stereo glass writes depth, so an item's glass must not be drawn before another item's opaque batches behind it.
     @Test func stereoCoverageGlassDrawsAfterEveryItemsOpaqueBatches() throws {
-        let glass = try models.material(transmission: 1)
+        let glass = models.material(transmission: 1)
         let first = try models.model([([0, 0, 2], glass)])
         let second = try models.model([([0, 0, -2], models.material())])
         let items = [PBRScene.Item(model: first), PBRScene.Item(model: second)]
@@ -331,7 +331,7 @@ struct SceneOrderingTests {
     }
 
     @Test func severalItemsDrawOpaqueThenBlendedRuns() throws {
-        let blended = try models.material(color: [1, 1, 1, 0.5], blended: true)
+        let blended = models.material(color: [1, 1, 1, 0.5], blended: true)
         let first = try models.model([([0, 0, -4], blended), ([0, 0, 0], models.material())])
         let second = try models.model([([0, 0, -2], blended)])
         let items = [PBRScene.Item(model: first), PBRScene.Item(model: second)]

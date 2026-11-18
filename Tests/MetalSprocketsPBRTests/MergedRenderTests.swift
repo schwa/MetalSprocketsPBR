@@ -35,12 +35,12 @@ struct MergedRenderTests {
         let placements: [SIMD3<Float>] = [[-0.6, 0.5, 0], [0.6, 0.5, 0], [-0.6, -0.5, 0.5], [0.6, -0.5, 0.5], [-0.6, 0, -0.5], [0.6, 0, -0.5]]
         var builder = PBRModelBuilder(device: models.device, restPose: PBRPose(worldMatrices: placements.map { simd_float4x4(translation: $0) }))
         builder.skins = [PBRModel.Skin(joints: [4], inverseBindMatrices: [matrix_identity_float4x4]), PBRModel.Skin(joints: [5], inverseBindMatrices: [matrix_identity_float4x4])]
-        builder.addInstance(primitives[quad], material: try models.material(), node: 0)
-        builder.addInstance(primitives[quad], material: try models.material(color: [0, 1, 0, 1]), node: 1)
-        builder.addInstance(primitives[quad], material: try models.material(transmission: 1, doubleSided: true), node: 2)
-        builder.addInstance(primitives[quad], material: try models.material(color: [0, 0, 1, 1], transmission: 1, doubleSided: true), node: 3)
-        builder.addInstance(primitives[skinned], material: try models.material(color: [1, 1, 0, 1]), node: 4, skin: 0)
-        builder.addInstance(primitives[skinned], material: try models.material(color: [0, 1, 1, 1]), node: 5, skin: 1)
+        builder.addInstance(primitives[quad], material: models.material(), node: 0)
+        builder.addInstance(primitives[quad], material: models.material(color: [0, 1, 0, 1]), node: 1)
+        builder.addInstance(primitives[quad], material: models.material(transmission: 1, doubleSided: true), node: 2)
+        builder.addInstance(primitives[quad], material: models.material(color: [0, 0, 1, 1], transmission: 1, doubleSided: true), node: 3)
+        builder.addInstance(primitives[skinned], material: models.material(color: [1, 1, 0, 1]), node: 4, skin: 0)
+        builder.addInstance(primitives[skinned], material: models.material(color: [0, 1, 1, 1]), node: 5, skin: 1)
         return try builder.build()
     }
 
@@ -67,10 +67,10 @@ struct MergedRenderTests {
     }
 
     @Test
-    func materialAccessors() throws {
-        let opaque = try models.material()
-        let glass = try models.material(transmission: 1)
-        #expect(opaque.canOverride(try models.material(color: [0, 0, 1, 1])))
+    func materialAccessors() {
+        let opaque = models.material()
+        let glass = models.material(transmission: 1)
+        #expect(opaque.canOverride(models.material(color: [0, 0, 1, 1])))
         #expect(!opaque.canOverride(glass))
         #expect(opaque[texture: kPBRTextureBaseColor].texture === models.placeholder.texture)
     }

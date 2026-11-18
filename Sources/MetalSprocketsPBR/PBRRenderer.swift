@@ -404,7 +404,7 @@ extension Element {
 public struct PBRFrameBindings {
     public var frame: PBRFrameUniforms
     /// Never empty: shaders read through a pointer, so an unlit frame binds one unused light.
-    public var lights: [PBRLight]
+    public var lights: [LightingLight]
     // PBRRenderer's vertex shaders; not bound by apply(to:).
     var view: PBRViewUniforms
     public var transmissionScene: MTLTexture
@@ -412,7 +412,7 @@ public struct PBRFrameBindings {
     public var specular: MTLTexture
     public var brdfLookup: MTLTexture
     public var sampler: MTLSamplerState
-    public var shadow: PBRShadowUniforms
+    public var shadow: LightingShadowUniforms
     public var shadowMap: MTLTexture
     public var shadowSampler: MTLSamplerState
     public var ambientOcclusion: MTLTexture
@@ -437,14 +437,14 @@ public struct PBRFrameBindings {
         frame.transmissionSceneMipCount = 1
         frame.ambientOcclusionStrength = ambientOcclusion?.strength ?? 0
         self.frame = frame
-        lights = lighting.lights.isEmpty ? [PBRLight()] : lighting.lights
+        lights = lighting.lights.isEmpty ? [LightingLight()] : lighting.lights
         view = PBRViewUniforms(viewProjectionMatrices: viewPair(viewProjections), modelMatrix: matrix_identity_float4x4, modelNormalMatrix: matrix_identity_float4x4)
         transmissionScene = shaders.placeholderTexture
         irradiance = environment.irradiance
         specular = environment.specular
         brdfLookup = environment.brdfLookup
         sampler = shaders.environmentSampler
-        shadow = lighting.shadows?.uniforms ?? PBRShadowUniforms()
+        shadow = lighting.shadows?.uniforms ?? LightingShadowUniforms()
         shadowMap = lighting.shadows?.map ?? shaders.placeholderShadowMap
         shadowSampler = lighting.shadows?.sampler ?? shaders.shadowSampler
         self.ambientOcclusion = ambientOcclusion?.texture ?? shaders.placeholderOcclusion

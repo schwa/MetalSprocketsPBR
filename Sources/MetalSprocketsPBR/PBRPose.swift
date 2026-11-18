@@ -14,7 +14,7 @@ public struct PBRPose: Sendable {
     public var visibility: [Bool] = []
     /// The lights at this moment (placed, animated, without hidden ones), when the producer computed them; nil uses the
     /// model's lights.
-    public var lights: [PBRLight]?
+    public var lights: [LightingLight]?
     /// Animated camera properties, by camera index then the producer's property name (glTF: the JSON pointer below
     /// `/cameras/N/`, e.g. `perspective/yfov`).
     public var cameraParameters: [Int: [String: Float]] = [:]

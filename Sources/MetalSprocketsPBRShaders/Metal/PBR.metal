@@ -183,9 +183,9 @@ namespace PBR {
         float3 barycentric [[barycentric_coord]],
         constant PBRMaterialUniforms &material [[buffer(0)]],
         constant PBRFrameUniforms &frame [[buffer(1)]],
-        constant PBRLight *lights [[buffer(2)]],
+        constant LightingLight *lights [[buffer(2)]],
         constant PBRMaterialResources &materialResources [[buffer(3)]],
-        constant PBRShadowUniforms &shadow [[buffer(4)]],
+        constant LightingShadowUniforms &shadow [[buffer(4)]],
         constant PBRFrameResources &frameResources [[buffer(5)]]
     ) {
         return withWireframe(shade(in, frontFacing, material, frame, lights, materialResources, shadow, frameResources), barycentric, frame, material);
@@ -199,9 +199,9 @@ namespace PBR {
         float3 barycentric [[barycentric_coord]],
         constant PBRMaterialUniforms *recordMaterials [[buffer(0)]],
         constant PBRFrameUniforms &frame [[buffer(1)]],
-        constant PBRLight *lights [[buffer(2)]],
+        constant LightingLight *lights [[buffer(2)]],
         constant PBRMaterialResources *recordResources [[buffer(3)]],
-        constant PBRShadowUniforms &shadow [[buffer(4)]],
+        constant LightingShadowUniforms &shadow [[buffer(4)]],
         constant PBRFrameResources &frameResources [[buffer(5)]]
     ) {
         constant PBRMaterialUniforms &material = recordMaterials[in.record];

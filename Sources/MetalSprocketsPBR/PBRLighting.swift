@@ -1,17 +1,18 @@
-// The shader-facing types (PBRVertex, PBRMaterialUniforms, PBRLight, ...) are part of this module's API.
+// The shader-facing types (PBRVertex, PBRMaterialUniforms, LightingLight, ...) are part of this module's API.
 import Metal
+@_exported import MetalSprocketsLighting
 @_exported import MetalSprocketsPBRShaders
 import simd
 
 // @unchecked: MTLTexture and MTLSamplerState are not Sendable. The renderer only reads them, and Metal allows that
 // from any thread.
 
-/// A depth shadow map for lights with shadow slices (``PBRLight/shadowSliceStart``, ``PBRLight/shadowSliceCount``).
+/// A depth shadow map for lights with shadow slices (`LightingLight.shadowSliceStart`, `shadowSliceCount`).
 /// Each light's direct light is scaled by the PCF result of its own slices only.
 public struct PBRShadows: @unchecked Sendable {
     /// A `depth2d_array` texture: one slice per entry in `sliceViewProjections`.
     public var map: MTLTexture
-    /// World to light clip space, one per slice, at most `kPBRMaxShadowSliceCount`.
+    /// World to light clip space, one per slice, at most `kLightingMaxShadowSliceCount`.
     public var sliceViewProjections: [simd_float4x4]
     /// PCF half-size in texels.
     public var filterRadius: Int
@@ -31,8 +32,8 @@ public struct PBRShadows: @unchecked Sendable {
         self.color = color
     }
 
-    var uniforms: PBRShadowUniforms {
-        var uniforms = PBRShadowUniforms()
+    var uniforms: LightingShadowUniforms {
+        var uniforms = LightingShadowUniforms()
         withUnsafeMutableBytes(of: &uniforms.sliceViewProjections) { buffer in
             let matrices = buffer.bindMemory(to: simd_float4x4.self)
             for (index, matrix) in sliceViewProjections.prefix(matrices.count).enumerated() {
@@ -66,7 +67,7 @@ public struct PBRAmbientOcclusion: @unchecked Sendable {
 
 /// Lights, image-based lighting, exposure and tone mapping for ``PBRRenderer``. There is always an environment.
 public struct PBRLighting: Sendable {
-    public var lights: [PBRLight]
+    public var lights: [LightingLight]
     public var environment: PBREnvironment
     public var environmentIntensity: Float
     public var exposure: Float
@@ -79,7 +80,7 @@ public struct PBRLighting: Sendable {
     /// Nil: no screen-space occlusion.
     public var ambientOcclusion: PBRAmbientOcclusion?
 
-    public init(lights: [PBRLight] = [], environment: PBREnvironment = .studio, environmentIntensity: Float = 1, exposure: Float = 1, toneMapping: PBRToneMapping = .pbrNeutral) {
+    public init(lights: [LightingLight] = [], environment: PBREnvironment = .studio, environmentIntensity: Float = 1, exposure: Float = 1, toneMapping: PBRToneMapping = .pbrNeutral) {
         self.lights = lights
         self.environment = environment
         self.environmentIntensity = environmentIntensity
@@ -101,26 +102,5 @@ public struct PBRLighting: Sendable {
     /// The studio environment with no punctual lights.
     public static var `default`: Self {
         Self()
-    }
-}
-
-public extension PBRLight {
-    static func directional(direction: SIMD3<Float>, color: SIMD3<Float> = [1, 1, 1], intensity: Float = 1) -> PBRLight {
-        var light = PBRLight()
-        light.type = .directional
-        light.direction = simd_normalize(direction)
-        light.color = color
-        light.intensity = intensity
-        return light
-    }
-
-    static func point(position: SIMD3<Float>, color: SIMD3<Float> = [1, 1, 1], intensity: Float = 1, range: Float = 0) -> PBRLight {
-        var light = PBRLight()
-        light.type = .point
-        light.position = position
-        light.color = color
-        light.intensity = intensity
-        light.range = range
-        return light
     }
 }

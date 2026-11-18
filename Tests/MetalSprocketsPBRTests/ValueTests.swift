@@ -35,11 +35,11 @@ struct ValueTests {
 
     @Test
     func lightingHelpers() {
-        let directional = PBRLight.directional(direction: [0, -2, 0], color: [1, 0, 0], intensity: 3)
+        let directional = LightingLight.directional(direction: [0, -2, 0], color: [1, 0, 0], intensity: 3)
         #expect(directional.type == .directional)
         #expect(directional.direction == [0, -1, 0])
         #expect(directional.intensity == 3)
-        let point = PBRLight.point(position: [1, 2, 3], range: 5)
+        let point = LightingLight.point(position: [1, 2, 3], range: 5)
         #expect(point.type == .point)
         #expect(point.position == [1, 2, 3])
         #expect(point.range == 5)

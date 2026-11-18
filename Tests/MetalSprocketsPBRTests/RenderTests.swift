@@ -113,8 +113,8 @@ struct RenderTests {
 
     @Test
     func glassShowsWhatIsBehindIt() throws {
-        let red = try models.material()
-        let glass = try models.material(color: [1, 1, 1, 1], transmission: 1, doubleSided: true)
+        let red = models.material()
+        let glass = models.material(color: [1, 1, 1, 1], transmission: 1, doubleSided: true)
         let model = try models.model([([0, 0, -1], red), ([0, 0, 0.5], glass)])
         var scene = scene(model)
         scene.showsBackground = true
@@ -146,7 +146,7 @@ struct RenderTests {
         let glass = try models.model([([0, 0, 0.5], models.material(color: [1, 1, 1, 1], transmission: 1, doubleSided: true))])
         let target = try PBRTransmissionTarget(device: models.device, size: 32)
         var behindRenderer = PBRRenderer(model: behind, viewMatrix: view, projectionMatrix: projection, lighting: lighting, transmissionTarget: target)
-        behindRenderer.materialOverrides = [models.quad.key: try models.material(color: [0, 0, 1, 1])]
+        behindRenderer.materialOverrides = [models.quad.key: models.material(color: [0, 0, 1, 1])]
         let glassRenderer = PBRRenderer(model: glass, viewMatrix: view, projectionMatrix: projection, lighting: lighting, transmissionTarget: target)
         let pixels = try render(try Group {
             PBRTransmissionPass(renderers: [behindRenderer, glassRenderer], target: target)
@@ -187,11 +187,11 @@ struct RenderTests {
 
     @Test
     func skinnedAndMorphedPrimitivesFollowThePose() throws {
-        let material = try models.material()
+        let material = models.material()
         var builder = PBRModelBuilder(device: models.device, restPose: PBRPose(worldMatrices: [matrix_identity_float4x4, matrix_identity_float4x4], morphWeights: [[], [0]]))
         builder.skins = [PBRModel.Skin(joints: [0], inverseBindMatrices: [matrix_identity_float4x4])]
         builder.addInstance(try models.skinnedMorphedQuad(skinned: true, morphed: false), material: material, node: 0, skin: 0)
-        builder.addInstance(try models.skinnedMorphedQuad(skinned: true, morphed: true), material: try models.material(color: [1, 0, 0, 0.5], blended: true), node: 0, skin: 0)
+        builder.addInstance(try models.skinnedMorphedQuad(skinned: true, morphed: true), material: models.material(color: [1, 0, 0, 0.5], blended: true), node: 0, skin: 0)
         builder.addInstance(try models.skinnedMorphedQuad(skinned: false, morphed: true), material: material, node: 1)
         let model = try builder.build()
         #expect(model.bounds(for: model.restPose) == model.bounds)
@@ -212,36 +212,36 @@ struct RenderTests {
         _ = try render(scene(model, pose: pose))
     }
 
-    func material(color: SIMD4<Float>, _ renderState: PBRRenderState) throws -> PBRMaterial {
-        try models.material(color: color).with(renderState: renderState)
+    func material(color: SIMD4<Float>, _ renderState: PBRRenderState) -> PBRMaterial {
+        models.material(color: color).with(renderState: renderState)
     }
 
     @Test
     func renderStateBlendsAdditively() throws {
-        let blue = try models.material(color: [0, 0, 1, 1])
-        let red = try material(color: [1, 0, 0, 1], PBRRenderState(blendMode: .additive))
+        let blue = models.material(color: [0, 0, 1, 1])
+        let red = material(color: [1, 0, 0, 1], PBRRenderState(blendMode: .additive))
         let pixels = try render(scene(try models.model([([0, 0, -1], blue), (.zero, red)])))
         #expect(pixels[center].x > 100 && pixels[center].z > 100, "Red added to blue: \(pixels[center])")
     }
 
     @Test
     func renderStateColorWriteMaskHidesChannels() throws {
-        let red = try material(color: [1, 0, 0, 1], PBRRenderState(colorWriteMask: [.green, .blue, .alpha]))
+        let red = material(color: [1, 0, 0, 1], PBRRenderState(colorWriteMask: [.green, .blue, .alpha]))
         let pixels = try render(scene(try models.model([(.zero, red)])))
         #expect(pixels[center].x == 0, "Red is not written: \(pixels[center])")
     }
 
     @Test
     func renderStateWithoutDepthTestDrawsOverNearerSurfaces() throws {
-        let blue = try models.material(color: [0, 0, 1, 1])
-        let red = try material(color: [1, 0, 0, 1], PBRRenderState(depthTest: false))
+        let blue = models.material(color: [0, 0, 1, 1])
+        let red = material(color: [1, 0, 0, 1], PBRRenderState(depthTest: false))
         let pixels = try render(scene(try models.model([([0, 0, 0.5], blue), ([0, 0, -1], red)])))
         #expect(pixels[center].x > pixels[center].z, "The far red quad draws over the near blue one: \(pixels[center])")
     }
 
     @Test
     func renderStateLinesFillModeDrawsEdgesOnly() throws {
-        let red = try material(color: [1, 0, 0, 1], PBRRenderState(fillMode: .lines))
+        let red = material(color: [1, 0, 0, 1], PBRRenderState(fillMode: .lines))
         let pixels = try render(scene(try models.model([(.zero, red)])))
         #expect(pixels[center] == [0, 0, 0, 255], "The inside of the quad is empty: \(pixels[center])")
         #expect(pixels.contains { $0.x > 100 }, "The edges are drawn")
@@ -250,7 +250,7 @@ struct RenderTests {
     @Test
     func linesAndPointsDrawUnlit() throws {
         let primitives = try models.linesAndPoints()
-        let material = try models.material(color: [0, 1, 0, 1])
+        let material = models.material(color: [0, 1, 0, 1])
         var builder = PBRModelBuilder(device: models.device, restPose: PBRPose(worldMatrices: [matrix_identity_float4x4]))
         for primitive in primitives {
             builder.addInstance(primitive, material: material, node: 0)
@@ -273,7 +273,7 @@ struct RenderTests {
         var scene = scene(model, pose: pose)
         // Mirrored by both the pose and the model matrix: still facing the camera.
         scene.modelMatrix = simd_float4x4(scale: [-1, 1, 1])
-        scene.materialOverrides = [models.quad.key: try models.material(color: [0, 0, 1, 1])]
+        scene.materialOverrides = [models.quad.key: models.material(color: [0, 0, 1, 1])]
         scene.pose = pose
         scene.model = model
         #expect(scene.model === model)
@@ -301,12 +301,12 @@ struct RenderTests {
         lightToShadowSpace.columns.3.z = 0.5
         let shadows = PBRShadows(map: map, sliceViewProjections: [lightToShadowSpace], filterRadius: 0)
 
-        var shadowed = PBRLight.directional(direction: [0, 0, -1], intensity: 0.5)
+        var shadowed = LightingLight.directional(direction: [0, 0, -1], intensity: 0.5)
         shadowed.shadowSliceStart = 0
         shadowed.shadowSliceCount = 1
-        let unshadowed = PBRLight.directional(direction: [0, 0, -1], intensity: 0.5)
+        let unshadowed = LightingLight.directional(direction: [0, 0, -1], intensity: 0.5)
 
-        func center(_ lights: [PBRLight], shadows: PBRShadows?) throws -> SIMD4<UInt8> {
+        func center(_ lights: [LightingLight], shadows: PBRShadows?) throws -> SIMD4<UInt8> {
             var lighting = PBRLighting(lights: lights, environment: darkRoom)
             lighting.shadows = shadows
             let scene = PBRScene(model: model, viewMatrix: view, projectionMatrix: projection, lighting: lighting, viewportSize: size)
@@ -341,7 +341,7 @@ struct RenderTests {
         descriptor.storageMode = .shared
         let texture = try #require(models.device.makeTexture(descriptor: descriptor))
         texture.replace(region: MTLRegionMake2D(0, 0, width, height), mipmapLevel: 0, withBytes: [UInt8](repeating: 0, count: width * height), bytesPerRow: width)
-        let light = PBRLight.directional(direction: [0, 0, -1], intensity: 0.5)
+        let light = LightingLight.directional(direction: [0, 0, -1], intensity: 0.5)
 
         func center(_ environment: PBREnvironment, occlusion: PBRAmbientOcclusion?) throws -> SIMD4<UInt8> {
             var lighting = PBRLighting(lights: [light], environment: environment)

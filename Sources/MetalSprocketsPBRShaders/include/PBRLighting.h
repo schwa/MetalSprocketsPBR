@@ -5,6 +5,7 @@
 #ifdef __METAL_VERSION__
 
 #include <metal_stdlib>
+#include "MetalSprocketsLighting.h"
 #include "PBRShaderTypes.h"
 #include "PBRShaderSupport.h"
 
@@ -152,48 +153,6 @@ namespace PBR {
     }
 
 
-    // KHR_lights_punctual range attenuation.
-    inline float rangeAttenuation(float range, float distance) {
-        const float inverseSquare = 1.0 / max(distance * distance, 1e-4);
-        if (range <= 0.0) {
-            return inverseSquare;
-        }
-        return clamp(1.0 - pow(distance / range, 4.0), 0.0, 1.0) * inverseSquare;
-    }
-
-    // PCF in one slice; 1 is lit. Positions outside the slice's view are lit.
-    inline float sliceShadow(float3 world, float4x4 viewProjection, float mapSize, int radius, depth2d_array<float> shadowMap, sampler shadowSampler, uint slice) {
-        const float4 clip = viewProjection * float4(world, 1);
-        const float3 ndc = clip.xyz / clip.w;
-        const float2 uv = float2(ndc.x * 0.5 + 0.5, 0.5 - ndc.y * 0.5);
-        if (any(uv < 0.0) || any(uv > 1.0) || ndc.z < 0.0 || ndc.z > 1.0) {
-            return 1.0;
-        }
-        float lit = 0.0;
-        const float texel = 1.0 / mapSize;
-        for (int x = -radius; x <= radius; x++) {
-            for (int y = -radius; y <= radius; y++) {
-                lit += shadowMap.sample_compare(shadowSampler, uv + float2(x, y) * texel, slice, ndc.z, level(0));
-            }
-        }
-        const float side = float(2 * radius + 1);
-        return lit / (side * side);
-    }
-
-    // How much of `light` reaches `world`: the product of its slices' PCF results, tinted by the shadow color and
-    // scaled by the shadow intensity (same formula as MetalSprocketsSceneGraph's BlinnPhong.metal).
-    inline float3 lightShadow(PBRLight light, float3 world, constant PBRShadowUniforms &shadow, depth2d_array<float> shadowMap, sampler shadowSampler) {
-        if (shadow.enabled == 0 || light.shadowSliceCount <= 0) {
-            return float3(1.0);
-        }
-        float lit = 1.0;
-        const int end = min(light.shadowSliceStart + light.shadowSliceCount, kPBRMaxShadowSliceCount);
-        for (int slice = max(light.shadowSliceStart, 0); slice < end; slice++) {
-            lit *= sliceShadow(world, shadow.sliceViewProjections[slice], shadow.mapSize, shadow.radius, shadowMap, shadowSampler, uint(slice));
-        }
-        return mix(float3(1.0), shadow.color, shadow.intensity * (1.0 - lit));
-    }
-
     // Data (normals, factors, UVs) is shown as its value on screen: the sRGB target encodes linear output, so decode
     // first. Colors (base color, emissive, F0, sheen) are already linear and go out as they are.
     inline float3 debugData(float3 value) {
@@ -273,14 +232,14 @@ namespace PBR {
         bool frontFacing,
         constant PBRMaterialUniforms &material,
         constant PBRFrameUniforms &frame,
-        constant PBRLight *lights,
+        constant LightingLight *lights,
         constant PBRMaterialResources &materialResources,
         texturecube<float> environmentIrradiance,
         texturecube<float> environmentSpecular,
         texture2d<float> brdfLookup,
         texture2d_array<float> transmissionScene,
         sampler environmentSampler,
-        constant PBRShadowUniforms &shadow,
+        constant LightingShadowUniforms &shadow,
         depth2d_array<float> shadowMap,
         sampler shadowSampler,
         texture2d<float> ambientOcclusion
@@ -633,24 +592,10 @@ namespace PBR {
         // Punctual lights
         float3 color = float3(0.0);
         for (int index = 0; index < frame.lightCount; ++index) {
-            const PBRLight light = lights[index];
-            float3 toLight;
-            float attenuation = 1.0;
-            if (light.type == kPBRLightTypeDirectional) {
-                toLight = -normalize(light.direction);
-            } else {
-                const float3 delta = light.position - in.worldPosition;
-                const float distance = length(delta);
-                toLight = delta / max(distance, 1e-6);
-                attenuation = rangeAttenuation(light.range, distance);
-                if (light.type == kPBRLightTypeSpot) {
-                    const float cd = dot(normalize(light.direction), -toLight);
-                    attenuation *= smoothstep(light.outerConeCos, light.innerConeCos, cd);
-                }
-            }
-
-            const float3 shadowing = lightShadow(light, in.worldPosition, shadow, shadowMap, shadowSampler);
-            const float3 radiance = light.color * light.intensity * attenuation * shadowing;
+            const LightingLight light = lights[index];
+            const Lighting::LightSample lightSample = Lighting::sample(light, in.worldPosition);
+            const float3 toLight = lightSample.toLight;
+            const float3 radiance = lightSample.radiance * Lighting::shadow(light, in.worldPosition, shadow, shadowMap, shadowSampler);
             const float NdotL = clamp(dot(normal, toLight), 0.0, 1.0);
             if (NdotL <= 0.0) {
                 // Light from behind reaches this side only by diffuse transmission. Its Fresnel term uses the light
@@ -805,9 +750,9 @@ namespace PBR {
         bool frontFacing,
         constant PBRMaterialUniforms &material,
         constant PBRFrameUniforms &frame,
-        constant PBRLight *lights,
+        constant LightingLight *lights,
         constant PBRMaterialResources &materialResources,
-        constant PBRShadowUniforms &shadow,
+        constant LightingShadowUniforms &shadow,
         constant PBRFrameResources &frameResources
     ) {
         return shade(in, frontFacing, material, frame, lights, materialResources, frameResources.environmentIrradiance, frameResources.environmentSpecular, frameResources.brdfLookup, frameResources.transmissionScene, frameResources.environmentSampler, shadow, frameResources.shadowMap, frameResources.shadowSampler, frameResources.ambientOcclusion);

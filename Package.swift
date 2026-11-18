@@ -15,6 +15,7 @@ let package = Package(
     ],
     dependencies: [
         .package(url: "https://github.com/schwa/MetalSprockets", .upToNextMinor(from: "0.3.4")),
+        .package(url: "https://github.com/schwa/MetalSprocketsLighting", .upToNextMinor(from: "0.0.2")),
         .package(url: "https://github.com/schwa/MetalCompilerPlugin", .upToNextMinor(from: "0.4.1")),
         .package(url: "https://github.com/schwa/MetalSupport", .upToNextMinor(from: "1.0.7")),
         .package(url: "https://github.com/schwa/SwiftMesh", .upToNextMinor(from: "0.1.0")),
@@ -25,7 +26,8 @@ let package = Package(
         .target(
             name: "MetalSprocketsPBRShaders",
             dependencies: [
-                .product(name: "MetalSprocketsShaders", package: "MetalSprockets")
+                .product(name: "MetalSprocketsShaders", package: "MetalSprockets"),
+                .product(name: "MetalSprocketsLightingShaders", package: "MetalSprocketsLighting")
             ],
             exclude: ["Metal"],
             plugins: [
@@ -37,6 +39,7 @@ let package = Package(
             dependencies: [
                 "MetalSprocketsPBRShaders",
                 .product(name: "MetalSprockets", package: "MetalSprockets"),
+                .product(name: "MetalSprocketsLighting", package: "MetalSprocketsLighting"),
                 .product(name: "MetalSprocketsUI", package: "MetalSprockets"),
                 .product(name: "MetalSupport", package: "MetalSupport"),
                 .product(name: "SwiftMesh", package: "SwiftMesh"),

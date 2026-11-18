@@ -1,6 +1,7 @@
 #pragma once
 
 #import "MetalSprocketsShaders.h"
+#import "MetalSprocketsLightingTypes.h"
 #import <simd/simd.h>
 
 // Interleaved vertex stored in vertex buffer 0. Attribute indices match the order of fields.
@@ -197,40 +198,6 @@ struct PBRFrameResources {
 };
 #endif
 
-typedef MS_ENUM(int, PBRLightType) {
-    kPBRLightTypeDirectional = 0,
-    kPBRLightTypePoint = 1,
-    kPBRLightTypeSpot = 2,
-};
-
-struct PBRLight {
-    simd_float3 position;
-    simd_float3 direction; // Direction the light travels, in world space.
-    simd_float3 color;
-    float intensity;
-    float range; // 0 means infinite.
-    float innerConeCos;
-    float outerConeCos;
-    PBRLightType type;
-    // This light's slices in the shadow map; count 0 casts no shadow. Each slice's PCF result scales only this light.
-    int shadowSliceStart;
-    int shadowSliceCount;
-};
-typedef struct PBRLight PBRLight;
-
-#define kPBRMaxShadowSliceCount 8
-
-// The shadow map shared by every light with shadow slices.
-struct PBRShadowUniforms {
-    // World to light clip space, one per slice. Depth is compared in 0...1 with the shadow sampler's compare function.
-    simd_float4x4 sliceViewProjections[kPBRMaxShadowSliceCount];
-    float mapSize;
-    int radius; // PCF half-size in texels.
-    int enabled;
-    float intensity; // 0 leaves shadowed pixels unchanged, 1 fully shadows.
-    simd_float3 color; // Tint of fully shadowed pixels.
-};
-typedef struct PBRShadowUniforms PBRShadowUniforms;
 
 /// How linear radiance (after exposure) becomes display values. Mirrored by the Swift PBRToneMapping; 0 is the default.
 typedef MS_ENUM(int, PBRShaderToneMapping) {

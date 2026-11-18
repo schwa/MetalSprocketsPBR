@@ -115,7 +115,7 @@ public final class PBRModel: @unchecked Sendable {
     public let blendedBatches: [Batch]
     public let skins: [Skin]
     /// Lights at rest.
-    public let lights: [PBRLight]
+    public let lights: [LightingLight]
     /// Node transforms and morph weights at rest; drawn when no pose is given.
     public let restPose: PBRPose
     /// Of every instance at rest, with skinned instances placed by their joints.
@@ -136,7 +136,7 @@ public final class PBRModel: @unchecked Sendable {
         (opaqueBatches + blendedBatches).contains { $0.material.uniforms.transmissionFactor > 0 }
     }
 
-    public init(opaqueInstances: [Instance], blendedInstances: [Instance], opaqueBatches: [Batch], blendedBatches: [Batch], skins: [Skin], lights: [PBRLight], restPose: PBRPose, bounds: BoundingBox3D, resourceCollection: ResourceCollection, merged: PBRMergedGeometry?, mergedSkinned: PBRMergedGeometry?, mergedTransmissive: PBRMergedGeometry?) {
+    public init(opaqueInstances: [Instance], blendedInstances: [Instance], opaqueBatches: [Batch], blendedBatches: [Batch], skins: [Skin], lights: [LightingLight], restPose: PBRPose, bounds: BoundingBox3D, resourceCollection: ResourceCollection, merged: PBRMergedGeometry?, mergedSkinned: PBRMergedGeometry?, mergedTransmissive: PBRMergedGeometry?) {
         self.opaqueInstances = opaqueInstances
         self.blendedInstances = blendedInstances
         self.opaqueBatches = opaqueBatches
