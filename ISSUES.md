@@ -808,7 +808,7 @@ Expected: PBRMaterial can be changed from one thread while another thread render
 status: new
 priority: medium
 kind: task
-labels: area:performance,effort:l,investigate
+labels: area:performance, effort:l, investigate
 created: 2026-11-17T20:03:34Z
 +++
 
@@ -832,5 +832,11 @@ There are no measurements. Unknown: the per-element cost in MetalSprockets today
 Needed before deciding:
 - Heavy benchmarks of merged versus per-primitive drawing at several primitive and material counts (CPU frame time, GPU time, memory), in Debug and Release.
 - The same benchmarks after the MetalSprockets per-element costs are reduced.
+
+- `2026-11-18T01:22:32Z`: Context for later:
+- MetalSprockets now runs on a render thread (SceneSprockets#393), so per-element cost no longer blocks the main thread. It still matters if render-thread CPU time per frame exceeds the frame budget (8.3 ms at 120 Hz, 11.1 ms at 90 Hz on visionOS), and for energy. Benchmarks should measure render-thread CPU time against the budget, and energy, not main-thread time.
+- Existing MetalSprockets data (from its issues, not re-measured): the only profile (GLTFViewer, MetalSprockets#479) showed reconciliation (diffing the element tree each frame) as the hot spot, not argument-table binding (#476, binding never profiled). A static 1000-cube scene spends about 1.75 ms per frame in Update in Release because closure-holding draws never compare equal (#519). In the Cubes benchmark, ParameterModifier.workloadEnter was about 15% of Workload; workload CPU went 7.2 to about 6.8 ms (#513; Debug or Release not stated).
+- Not measured: tree building (body evaluation) on its own, scaling past 1000 draws, and SceneSprockets' real scenes.
+- MetalSprockets#519 (reuse unchanged draw subtrees via Equatable payloads, #521-#523) targets the reconciliation cost directly; its outcome bears on whether merging is still needed.
 
 ---
