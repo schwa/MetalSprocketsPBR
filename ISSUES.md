@@ -842,3 +842,27 @@ Needed before deciding:
 - `2026-11-18T18:13:36Z`: Tracked in SceneSprockets as #545.
 
 ---
+
+## 38: Scene-wide lighting inputs are bound one slot at a time on every draw
+
++++
+status: new
+priority: medium
+kind: enhancement
+labels: area:performance,effort:m
+created: 2026-11-18T18:18:13Z
++++
+
+Material textures are already bindless: each PBRMaterial writes its textures and samplers into a PBRMaterialResources argument buffer once, and draws find them by index.
+
+The scene-wide lighting inputs are not. The environment irradiance and specular cubes, the BRDF lookup, the transmission scene texture, the shadow map, the ambient occlusion texture and their samplers are bound as separate texture and sampler slots (PBR.metal: brdfLookup [[texture(2)]], ambientOcclusion [[texture(5)]], environmentSampler [[sampler(0)]], shadowSampler [[sampler(1)]], ...) on every draw, every frame, although they are the same for every draw in a frame.
+
+Effects:
+- Per-draw binding cost that grows with the number of draws.
+- Shaders outside this package that call PBR::shade (SceneSprocketsAddOns voxel and signed-distance renderers) must repeat the same slot layout by hand.
+- Indirect command buffer commands cannot bind these textures.
+
+Depends on: MetalSprockets#579 (no persistent argument buffers).
+Related: SceneSprockets#542 (no shared lighting model).
+
+---
