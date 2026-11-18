@@ -22,7 +22,7 @@ public extension MTLTexture {
     /// The pixels of a shared rgba16Float texture, row by row, four components each.
     func float16Pixels() throws -> [Float16] {
         guard pixelFormat == .rgba16Float, storageMode == .shared else {
-            throw PBREnvironmentError.resourceCreationFailed("float16Pixels needs a shared rgba16Float texture")
+            throw LightingEnvironmentError.resourceCreationFailed("float16Pixels needs a shared rgba16Float texture")
         }
         var pixels = [Float16](repeating: 0, count: width * height * 4)
         pixels.withUnsafeMutableBytes { bytes in
@@ -43,7 +43,7 @@ public extension MTLTexture {
                 provider: provider, decode: nil, shouldInterpolate: false, intent: .defaultIntent
               )
         else {
-            throw PBREnvironmentError.resourceCreationFailed("HDR image")
+            throw LightingEnvironmentError.resourceCreationFailed("HDR image")
         }
         return image
     }
@@ -53,11 +53,11 @@ public extension CGImage {
     /// Writes the image as OpenEXR.
     func writeEXR(to url: URL) throws {
         guard let destination = CGImageDestinationCreateWithURL(url as CFURL, UTType.exr.identifier as CFString, 1, nil) else {
-            throw PBREnvironmentError.resourceCreationFailed("EXR destination")
+            throw LightingEnvironmentError.resourceCreationFailed("EXR destination")
         }
         CGImageDestinationAddImage(destination, self, nil)
         guard CGImageDestinationFinalize(destination) else {
-            throw PBREnvironmentError.resourceCreationFailed("EXR write")
+            throw LightingEnvironmentError.resourceCreationFailed("EXR write")
         }
     }
 }

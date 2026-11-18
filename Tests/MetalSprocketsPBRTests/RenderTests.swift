@@ -288,7 +288,7 @@ struct RenderTests {
     @Test
     func shadowScalesOnlyItsOwnLight() throws {
         let model = try models.model([(.zero, models.material())])
-        let darkRoom = try PBREnvironment(source: .uniform(.zero), device: models.device)
+        let darkRoom = try LightingEnvironment(source: .uniform(.zero), device: models.device)
         // Depth 0 everywhere: with lessEqual, every fragment behind it (depth 0.5) is in shadow.
         let descriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .depth32Float, width: 4, height: 4, mipmapped: false)
         descriptor.textureType = .type2DArray
@@ -333,8 +333,8 @@ struct RenderTests {
     @Test
     func ambientOcclusionDarkensOnlyIndirectLight() throws {
         let model = try models.model([(.zero, models.material())])
-        let room = try PBREnvironment(source: .uniform([0.5, 0.5, 0.5]), device: models.device)
-        let darkRoom = try PBREnvironment(source: .uniform(.zero), device: models.device)
+        let room = try LightingEnvironment(source: .uniform([0.5, 0.5, 0.5]), device: models.device)
+        let darkRoom = try LightingEnvironment(source: .uniform(.zero), device: models.device)
         let width = Int(size.width), height = Int(size.height)
         let descriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .r8Unorm, width: width, height: height, mipmapped: false)
         descriptor.usage = .shaderRead
@@ -343,7 +343,7 @@ struct RenderTests {
         texture.replace(region: MTLRegionMake2D(0, 0, width, height), mipmapLevel: 0, withBytes: [UInt8](repeating: 0, count: width * height), bytesPerRow: width)
         let light = LightingLight.directional(direction: [0, 0, -1], intensity: 0.5)
 
-        func center(_ environment: PBREnvironment, occlusion: PBRAmbientOcclusion?) throws -> SIMD4<UInt8> {
+        func center(_ environment: LightingEnvironment, occlusion: PBRAmbientOcclusion?) throws -> SIMD4<UInt8> {
             var lighting = PBRLighting(lights: [light], environment: environment)
             lighting.ambientOcclusion = occlusion
             let scene = PBRScene(model: model, viewMatrix: view, projectionMatrix: projection, lighting: lighting, viewportSize: size)
@@ -367,7 +367,7 @@ struct RenderTests {
         let material = PBRMaterial(uniforms: uniforms, placeholder: models.placeholder, device: models.device)
         let model = try models.model([(.zero, material)])
         let renderer = try OffscreenRenderer.hdr(size: size, device: models.device)
-        let scene = PBRScene(model: model, viewMatrix: view, projectionMatrix: projection, lighting: PBRLighting(environment: try PBREnvironment(source: .uniform(.zero), device: models.device), toneMapping: .none), viewportSize: size)
+        let scene = PBRScene(model: model, viewMatrix: view, projectionMatrix: projection, lighting: PBRLighting(environment: try LightingEnvironment(source: .uniform(.zero), device: models.device), toneMapping: .none), viewportSize: size)
         let texture = try renderer.render(scene).texture
         let pixels = try texture.float16Pixels()
         #expect(pixels[center * 4] > 2)
@@ -379,15 +379,15 @@ struct RenderTests {
         #expect(FileManager.default.fileExists(atPath: url.path))
 
         // An EXR is a valid equirectangular environment.
-        let environment = try PBREnvironment(source: .equirectangular(url), device: models.device, specularSize: 16, irradianceSize: 8)
+        let environment = try LightingEnvironment(source: .equirectangular(url), device: models.device, specularSize: 16, irradianceSize: 8)
         #expect(environment.source.width == 32)
-        #expect(throws: PBREnvironmentError.self) {
-            try PBREnvironment(source: .equirectangular(URL(fileURLWithPath: "/nonexistent.exr")), device: models.device)
+        #expect(throws: LightingEnvironmentError.self) {
+            try LightingEnvironment(source: .equirectangular(URL(fileURLWithPath: "/nonexistent.exr")), device: models.device)
         }
-        #expect(throws: PBREnvironmentError.self) {
+        #expect(throws: LightingEnvironmentError.self) {
             try OffscreenRenderer(size: size, device: models.device).colorTexture.float16Pixels()
         }
-        #expect(throws: PBREnvironmentError.self) {
+        #expect(throws: LightingEnvironmentError.self) {
             try image.writeEXR(to: URL(fileURLWithPath: "/nonexistent/directory/image.exr"))
         }
     }

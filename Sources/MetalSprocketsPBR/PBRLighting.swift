@@ -68,7 +68,7 @@ public struct PBRAmbientOcclusion: @unchecked Sendable {
 /// Lights, image-based lighting, exposure and tone mapping for ``PBRRenderer``. There is always an environment.
 public struct PBRLighting: Sendable {
     public var lights: [LightingLight]
-    public var environment: PBREnvironment
+    public var environment: LightingEnvironment
     public var environmentIntensity: Float
     public var exposure: Float
     public var toneMapping: PBRToneMapping
@@ -80,7 +80,7 @@ public struct PBRLighting: Sendable {
     /// Nil: no screen-space occlusion.
     public var ambientOcclusion: PBRAmbientOcclusion?
 
-    public init(lights: [LightingLight] = [], environment: PBREnvironment = .studio, environmentIntensity: Float = 1, exposure: Float = 1, toneMapping: PBRToneMapping = .pbrNeutral) {
+    public init(lights: [LightingLight] = [], environment: LightingEnvironment = .studio, environmentIntensity: Float = 1, exposure: Float = 1, toneMapping: PBRToneMapping = .pbrNeutral) {
         self.lights = lights
         self.environment = environment
         self.environmentIntensity = environmentIntensity

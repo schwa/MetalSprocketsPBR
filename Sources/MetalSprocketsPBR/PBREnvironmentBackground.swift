@@ -3,11 +3,11 @@ import MetalSprockets
 import MetalSprocketsPBRShaders
 import simd
 
-/// Draws a ``PBREnvironment`` behind the scene. Place it before ``PBRRenderer`` in the same `RenderPass`.
+/// Draws a ``LightingEnvironment`` behind the scene. Place it before ``PBRRenderer`` in the same `RenderPass`.
 ///
 /// Uses the same exposure and tone mapping as `PBRRenderer`, so reflections match the background.
 public struct PBREnvironmentBackground: Element {
-    public var environment: PBREnvironment
+    public var environment: LightingEnvironment
     public var viewMatrix: simd_float4x4
     public var projectionMatrix: simd_float4x4
     public var intensity: Float
@@ -22,7 +22,7 @@ public struct PBREnvironmentBackground: Element {
     /// Draw these views at once instead of `viewMatrix` and `projectionMatrix` (see ``PBRRenderer/stereo``).
     public var stereo: StereoViews?
 
-    public init(environment: PBREnvironment, viewMatrix: simd_float4x4, projectionMatrix: simd_float4x4, intensity: Float = 1, exposure: Float = 1, blur: Float = 0) {
+    public init(environment: LightingEnvironment, viewMatrix: simd_float4x4, projectionMatrix: simd_float4x4, intensity: Float = 1, exposure: Float = 1, blur: Float = 0) {
         self.environment = environment
         self.viewMatrix = viewMatrix
         self.projectionMatrix = projectionMatrix

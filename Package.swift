@@ -15,7 +15,7 @@ let package = Package(
     ],
     dependencies: [
         .package(url: "https://github.com/schwa/MetalSprockets", .upToNextMinor(from: "0.3.4")),
-        .package(url: "https://github.com/schwa/MetalSprocketsLighting", .upToNextMinor(from: "0.0.2")),
+        .package(url: "https://github.com/schwa/MetalSprocketsLighting", .upToNextMinor(from: "0.0.3")),
         .package(url: "https://github.com/schwa/MetalCompilerPlugin", .upToNextMinor(from: "0.4.1")),
         .package(url: "https://github.com/schwa/MetalSupport", .upToNextMinor(from: "1.0.7")),
         .package(url: "https://github.com/schwa/SwiftMesh", .upToNextMinor(from: "0.1.0")),

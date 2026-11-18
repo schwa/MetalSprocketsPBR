@@ -35,7 +35,7 @@ extension MTLDevice {
         descriptor.usage = usage
         descriptor.storageMode = storageMode
         guard let texture = makeTexture(descriptor: descriptor) else {
-            throw PBREnvironmentError.resourceCreationFailed(label)
+            throw LightingEnvironmentError.resourceCreationFailed(label)
         }
         texture.label = label
         return texture

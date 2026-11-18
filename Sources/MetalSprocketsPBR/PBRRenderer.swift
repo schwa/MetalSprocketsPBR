@@ -592,7 +592,7 @@ struct PBRShaders {
                 return descriptor
               }())
         else {
-            throw PBREnvironmentError.resourceCreationFailed("renderer resources")
+            throw LightingEnvironmentError.resourceCreationFailed("renderer resources")
         }
 
         return Self(

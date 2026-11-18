@@ -263,12 +263,6 @@ struct PBRFrameUniforms {
 };
 typedef struct PBRFrameUniforms PBRFrameUniforms;
 
-struct PBRPrefilterParameters {
-    float roughness;
-    unsigned int sampleCount;
-};
-typedef struct PBRPrefilterParameters PBRPrefilterParameters;
-
 struct PBRBackgroundUniforms {
     simd_float4x4 inverseViewProjections[kPBRMaxViewCount]; // Per view: projection times view without translation, inverted.
     float lod;
