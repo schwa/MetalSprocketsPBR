@@ -122,7 +122,7 @@ public struct PBRRenderer: Element {
         bindings.view = PBRViewUniforms(viewProjectionMatrices: viewPair(viewProjections), modelMatrix: modelMatrix, modelNormalMatrix: modelMatrix.inverse.transpose)
 
         let plan = drawPlan(cameraPosition: views.centerPosition)
-        let context = PipelineContext(shaders: shaders, bindings: bindings, modelIsMirrored: modelMatrix.isMirroring)
+        let context = PipelineContext(shaders: shaders, bindings: bindings, frameResources: bindings.makeFrameResources(), modelIsMirrored: modelMatrix.isMirroring)
 
         return try Group {
             if transmissionScene != nil {
@@ -153,6 +153,7 @@ public struct PBRRenderer: Element {
     private struct PipelineContext {
         var shaders: PBRShaders
         var bindings: PBRFrameBindings
+        var frameResources: ArgumentBuffer
         var modelIsMirrored: Bool
     }
 
@@ -179,7 +180,7 @@ public struct PBRRenderer: Element {
             context.bindings.apply(to: ForEach(draws) { batchDraw in
                 draw(batchDraw)
             }
-            .parameter("view", value: context.bindings.view))
+            .parameter("view", value: context.bindings.view), frameResources: context.frameResources)
         }
         .vertexDescriptor(variant.skinned ? PBRModel.skinnedVertexDescriptor : PBRModel.vertexDescriptor)
         .renderPipelineDescriptorTransformer { descriptor in
@@ -253,14 +254,14 @@ public struct PBRRenderer: Element {
 
     /// A merged pipeline: the record inputs every merged draw shares, its record materials and textures (prebuilt, or
     /// this frame's when given) and the frame's bindings, around `draw`.
-    private func mergedPipeline(_ label: String, vertexShader: VertexShader, vertexDescriptor: MTLVertexDescriptor, merged: PBRMergedGeometry, materials: [PBRMaterialUniforms]?, resources: [PBRMaterialResources]?, context: PipelineContext, draw: () -> some Element) throws -> some Element {
+    private func mergedPipeline(_ label: String, vertexShader: VertexShader, vertexDescriptor: MTLVertexDescriptor, merged: PBRMergedGeometry, materials: [PBRMaterialUniforms]?, resources: ArgumentBuffer?, context: PipelineContext, draw: () -> some Element) throws -> some Element {
         let content = draw()
             .vertexBuffer(merged.vertexBuffer, index: 0)
             .parameter("instanceRecords", buffer: merged.instanceRecordBuffer)
             .parameter("recordMaterials", values: materials, else: merged.materialBuffer)
-            .parameter("recordResources", values: resources, else: merged.resourceBuffer)
+            .parameter("recordResources", argumentBuffer: resources ?? merged.resources)
         return try RenderPipeline(label: label, vertexShader: vertexShader, fragmentShader: context.shaders.mergedFragment) {
-            context.bindings.apply(to: content.parameter("view", value: context.bindings.view))
+            context.bindings.apply(to: content.parameter("view", value: context.bindings.view), frameResources: context.frameResources)
         }
         .vertexDescriptor(vertexDescriptor)
         .depthCompare(function: depthFunction, writes: true)
@@ -313,9 +314,7 @@ public struct PBRRenderer: Element {
 
         return instances(of: batchDraw, on: draw)
             .parameter("material", value: batchDraw.uniforms)
-            // Every material texture and sampler, through one argument buffer. The textures it references are kept
-            // resident by the model's resource collection.
-            .parameter("materialResources", buffer: batchDraw.material.resourceBuffer)
+            .parameter("materialResources", argumentBuffer: batchDraw.material.resources)
     }
 }
 
@@ -451,6 +450,31 @@ public struct PBRFrameBindings {
         self.ambientOcclusion = ambientOcclusion?.texture ?? shaders.placeholderOcclusion
     }
 
+    /// The textures and samplers as a `PBRFrameResources` argument buffer, for ``apply(to:frameResources:)``. Make it once
+    /// per frame and share it between pipelines.
+    public func makeFrameResources() -> ArgumentBuffer {
+        let resources = ArgumentBuffer(device: irradiance.device, label: "PBR Frame Resources")
+        resources.set("environmentIrradiance", texture: irradiance)
+        resources.set("environmentSpecular", texture: specular)
+        resources.set("brdfLookup", texture: brdfLookup)
+        resources.set("transmissionScene", texture: transmissionScene)
+        resources.set("shadowMap", texture: shadowMap)
+        resources.set("ambientOcclusion", texture: ambientOcclusion)
+        resources.set("environmentSampler", samplerState: sampler)
+        resources.set("shadowSampler", samplerState: shadowSampler)
+        return resources
+    }
+
+    /// Binds `frame`, `lights`, `shadow` and `frameResources` (from ``makeFrameResources()``), as the `PBR::shade`
+    /// overload that takes a `PBRFrameResources` reads them.
+    public func apply(to content: some Element, frameResources: ArgumentBuffer) -> some Element {
+        content
+            .parameter("frame", value: frame)
+            .parameter("lights", values: lights)
+            .parameter("shadow", value: shadow)
+            .parameter("frameResources", argumentBuffer: frameResources)
+    }
+
     public func apply(to content: some Element) -> some Element {
         content
             .parameter("frame", value: frame)
@@ -559,6 +583,7 @@ struct PBRShaders {
               }()),
               let shadowSampler = device.makeSamplerState(descriptor: {
                 let descriptor = MTLSamplerDescriptor()
+                descriptor.supportArgumentBuffers = true
                 descriptor.minFilter = .linear
                 descriptor.magFilter = .linear
                 descriptor.sAddressMode = .clampToEdge

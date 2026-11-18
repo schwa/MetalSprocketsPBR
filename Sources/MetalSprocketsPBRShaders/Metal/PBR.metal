@@ -186,16 +186,9 @@ namespace PBR {
         constant PBRLight *lights [[buffer(2)]],
         constant PBRMaterialResources &materialResources [[buffer(3)]],
         constant PBRShadowUniforms &shadow [[buffer(4)]],
-        texturecube<float> environmentIrradiance [[texture(0)]],
-        texturecube<float> environmentSpecular [[texture(1)]],
-        texture2d<float> brdfLookup [[texture(2)]],
-        texture2d_array<float> transmissionScene [[texture(3)]],
-        depth2d_array<float> shadowMap [[texture(4)]],
-        texture2d<float> ambientOcclusion [[texture(5)]],
-        sampler environmentSampler [[sampler(0)]],
-        sampler shadowSampler [[sampler(1)]]
+        constant PBRFrameResources &frameResources [[buffer(5)]]
     ) {
-        return withWireframe(shade(in, frontFacing, material, frame, lights, materialResources, environmentIrradiance, environmentSpecular, brdfLookup, transmissionScene, environmentSampler, shadow, shadowMap, shadowSampler, ambientOcclusion), barycentric, frame, material);
+        return withWireframe(shade(in, frontFacing, material, frame, lights, materialResources, shadow, frameResources), barycentric, frame, material);
     }
 
     // Merged static geometry: each draw record has its own material, selected by the record index the vertex stage
@@ -209,17 +202,10 @@ namespace PBR {
         constant PBRLight *lights [[buffer(2)]],
         constant PBRMaterialResources *recordResources [[buffer(3)]],
         constant PBRShadowUniforms &shadow [[buffer(4)]],
-        texturecube<float> environmentIrradiance [[texture(0)]],
-        texturecube<float> environmentSpecular [[texture(1)]],
-        texture2d<float> brdfLookup [[texture(2)]],
-        texture2d_array<float> transmissionScene [[texture(3)]],
-        depth2d_array<float> shadowMap [[texture(4)]],
-        texture2d<float> ambientOcclusion [[texture(5)]],
-        sampler environmentSampler [[sampler(0)]],
-        sampler shadowSampler [[sampler(1)]]
+        constant PBRFrameResources &frameResources [[buffer(5)]]
     ) {
         constant PBRMaterialUniforms &material = recordMaterials[in.record];
-        return withWireframe(shade(in, frontFacing, material, frame, lights, recordResources[in.record], environmentIrradiance, environmentSpecular, brdfLookup, transmissionScene, environmentSampler, shadow, shadowMap, shadowSampler, ambientOcclusion), barycentric, frame, material);
+        return withWireframe(shade(in, frontFacing, material, frame, lights, recordResources[in.record], shadow, frameResources), barycentric, frame, material);
     }
 
 } // namespace PBR

@@ -1,5 +1,5 @@
 {
-  "originHash" : "ca802a7f157fb7d3a341f5be7e47e2a79266a963bb03991d0e63522ade97f860",
+  "originHash" : "00f3cc64a9b4e6d505b99c20038ad2d2824968452e75d0a002f6783142b55973",
   "pins" : [
     {
       "identity" : "geometrylite2d",
@@ -42,8 +42,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/schwa/MetalSprockets",
       "state" : {
-        "revision" : "2cc19f5a9b64f7d05cb7cd81936f4396cebb419b",
-        "version" : "0.3.0"
+        "revision" : "46749dd433b2bfc77d818b9c961bba060cf84767",
+        "version" : "0.3.4"
       }
     },
     {

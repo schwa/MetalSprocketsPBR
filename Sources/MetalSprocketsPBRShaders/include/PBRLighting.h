@@ -800,6 +800,19 @@ namespace PBR {
         return float4(color, baseColor.a);
     }
 
+    inline float4 shade(
+        Fragment in,
+        bool frontFacing,
+        constant PBRMaterialUniforms &material,
+        constant PBRFrameUniforms &frame,
+        constant PBRLight *lights,
+        constant PBRMaterialResources &materialResources,
+        constant PBRShadowUniforms &shadow,
+        constant PBRFrameResources &frameResources
+    ) {
+        return shade(in, frontFacing, material, frame, lights, materialResources, frameResources.environmentIrradiance, frameResources.environmentSpecular, frameResources.brdfLookup, frameResources.transmissionScene, frameResources.environmentSampler, shadow, frameResources.shadowMap, frameResources.shadowSampler, frameResources.ambientOcclusion);
+    }
+
 } // namespace PBR
 
 #endif

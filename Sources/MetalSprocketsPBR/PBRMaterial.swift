@@ -1,4 +1,5 @@
 import Metal
+import MetalSprockets
 import MetalSprocketsPBRShaders
 import simd
 
@@ -101,9 +102,9 @@ public final class PBRMaterial: @unchecked Sendable {
     /// Every material texture and its sampler, in `PBRMaterialTextureIndex` order. Slots the material does not use
     /// hold a placeholder (see ``placeholderBinding(device:)``).
     public let textureBindings: [Binding]
-    /// `PBRMaterialResources`: `textureBindings` as GPU handles, so a draw binds the whole material with one buffer.
-    /// The textures are only referenced indirectly; keep them resident.
-    public let resourceBuffer: MTLBuffer
+    /// `textureBindings` as a `PBRMaterialResources` argument buffer, so a draw binds the whole material with one
+    /// buffer and keeps its textures resident.
+    public let resources: ArgumentBuffer
     /// Animatable texture transforms, keyed by the producer's name for the texture (glTF: its path below
     /// `/materials/N/`).
     public let textureTransforms: [String: TextureTransform]
@@ -123,7 +124,7 @@ public final class PBRMaterial: @unchecked Sendable {
 
     /// `textureBindings` must have one binding per `PBRMaterialTextureIndex` (`kPBRMaterialTextureCount`); enable
     /// the matching `uniforms` slots for the ones that are real textures.
-    public init(name: String? = nil, uniforms: PBRMaterialUniforms, doubleSided: Bool = false, renderState: PBRRenderState = PBRRenderState(), textureTransforms: [String: TextureTransform] = [:], textureBindings: [Binding], device: MTLDevice) throws {
+    public init(name: String? = nil, uniforms: PBRMaterialUniforms, doubleSided: Bool = false, renderState: PBRRenderState = PBRRenderState(), textureTransforms: [String: TextureTransform] = [:], textureBindings: [Binding], device: MTLDevice) {
         precondition(textureBindings.count == Int(kPBRMaterialTextureCount.rawValue), "One texture binding per PBRMaterialTextureIndex")
         self.name = name
         self.uniforms = uniforms
@@ -131,18 +132,13 @@ public final class PBRMaterial: @unchecked Sendable {
         self.renderState = renderState
         self.textureTransforms = textureTransforms
         self.textureBindings = textureBindings
-        let handles = textureBindings.map(\.texture.gpuResourceID._impl) + textureBindings.map(\.sampler.gpuResourceID._impl)
-        assert(handles.count * MemoryLayout<UInt64>.stride == MemoryLayout<PBRMaterialResources>.size)
-        guard let resourceBuffer = device.makeBuffer(bytes: handles, length: handles.count * MemoryLayout<UInt64>.stride, options: .storageModeShared) else {
-            throw PBRGeometryError.bufferAllocationFailed
-        }
-        resourceBuffer.label = "\(name ?? "PBR Material") Resources"
-        self.resourceBuffer = resourceBuffer
+        resources = ArgumentBuffer(device: device, label: "\(name ?? "PBR Material") Resources")
+        resources.setMaterialResources(textureBindings)
     }
 
     /// A material with every texture slot holding `placeholder` (disabled in the uniforms): factors only.
-    public convenience init(name: String? = nil, uniforms: PBRMaterialUniforms, doubleSided: Bool = false, renderState: PBRRenderState = PBRRenderState(), placeholder: Binding, device: MTLDevice) throws {
-        try self.init(name: name, uniforms: uniforms, doubleSided: doubleSided, renderState: renderState, textureBindings: Array(repeating: placeholder, count: Int(kPBRMaterialTextureCount.rawValue)), device: device)
+    public convenience init(name: String? = nil, uniforms: PBRMaterialUniforms, doubleSided: Bool = false, renderState: PBRRenderState = PBRRenderState(), placeholder: Binding, device: MTLDevice) {
+        self.init(name: name, uniforms: uniforms, doubleSided: doubleSided, renderState: renderState, textureBindings: Array(repeating: placeholder, count: Int(kPBRMaterialTextureCount.rawValue)), device: device)
     }
 
     private init(copying material: PBRMaterial, uniforms: PBRMaterialUniforms, renderState: PBRRenderState, textureTransforms: [String: TextureTransform]) {
@@ -152,7 +148,7 @@ public final class PBRMaterial: @unchecked Sendable {
         self.renderState = renderState
         self.textureTransforms = textureTransforms
         textureBindings = material.textureBindings
-        resourceBuffer = material.resourceBuffer
+        resources = material.resources
     }
 
     /// A new material sharing this one's textures and GPU resources, with the given values replaced.
@@ -177,5 +173,13 @@ public final class PBRMaterial: @unchecked Sendable {
         samplerDescriptor.sAddressMode = .repeat
         samplerDescriptor.tAddressMode = .repeat
         return try Binding(texture: texture, samplerDescriptor: samplerDescriptor, device: device)
+    }
+}
+
+extension ArgumentBuffer {
+    // One `PBRMaterialResources` element, in `PBRMaterialTextureIndex` order.
+    func setMaterialResources(_ bindings: [PBRMaterial.Binding], element: Int = 0) {
+        set("textures", textures: bindings.map(\.texture), element: element)
+        set("samplers", samplerStates: bindings.map(\.sampler), element: element)
     }
 }

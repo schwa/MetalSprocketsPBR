@@ -1,5 +1,6 @@
 import GeometryLite3D
 import Metal
+import MetalSprockets
 import MetalSprocketsPBRShaders
 import simd
 
@@ -45,8 +46,8 @@ public final class PBRMergedGeometry {
     public let instanceRecordBuffer: MTLBuffer
     /// One `PBRMaterialUniforms` per record.
     public let materialBuffer: MTLBuffer
-    /// One `PBRMaterialResources` per record.
-    public let resourceBuffer: MTLBuffer
+    /// One `PBRMaterialResources` element per record.
+    public let resources: ArgumentBuffer
     /// Skinned only: the asset's shared `PBRSkinVertex` values, parallel to the vertices.
     public let skinVertexBuffer: MTLBuffer?
     /// Skinned only: each record's first joint in the palette.
@@ -55,7 +56,7 @@ public final class PBRMergedGeometry {
     public let paletteSkins: [Int]
 
     public var allocations: [any MTLAllocation] {
-        [vertexBuffer, indexBuffer, instanceBuffer, instanceRecordBuffer, materialBuffer, resourceBuffer] + [skinVertexBuffer, recordJointOffsetBuffer].compactMap(\.self)
+        [vertexBuffer, indexBuffer, instanceBuffer, instanceRecordBuffer, materialBuffer] + [skinVertexBuffer, recordJointOffsetBuffer].compactMap(\.self)
     }
 
     /// Static and skinned primitives merge separately, and so do transmissive ones (the transmission pre-pass must draw
@@ -90,7 +91,6 @@ public final class PBRMergedGeometry {
         var instances: [PBRInstance] = []
         var instanceRecords: [UInt32] = []
         var materials: [PBRMaterialUniforms] = []
-        var resources: [PBRMaterialResources] = []
         var records: [Record] = []
         for batch in mergeable {
             let primitive = batch.primitive
@@ -111,7 +111,6 @@ public final class PBRMergedGeometry {
             instanceRecords.append(contentsOf: repeatElement(UInt32(records.count), count: batch.instanceCount))
 
             materials.append(.resolved(batch.material, primitive: primitive, pose: nil))
-            resources.append(batch.material.resourceBuffer.contents().load(as: PBRMaterialResources.self))
             records.append(Record(indexStart: primitive.indexStart, indexCount: primitive.indexCount, baseVertex: primitive.baseVertex, firstInstance: firstInstance, instanceCount: batch.instanceCount, doubleSided: batch.material.doubleSided, mirrored: batch.isMirrored, nodeIndices: batch.nodeIndices, instanceMatrices: batch.instanceMatrices, material: batch.material, primitiveKey: primitive.key, hasTangents: primitive.hasTangents, hasNormals: primitive.hasNormals, localBounds: primitive.bounds, worldBounds: batch.worldBounds, skinIndex: batch.skinIndex))
         }
 
@@ -129,7 +128,7 @@ public final class PBRMergedGeometry {
         instanceBuffer = try buffer(instances, label: "PBR Merged \(kind) Instances")
         instanceRecordBuffer = try buffer(instanceRecords, label: "PBR Merged \(kind) Instance Records")
         materialBuffer = try buffer(materials, label: "PBR Merged \(kind) Materials")
-        resourceBuffer = try buffer(resources, label: "PBR Merged \(kind) Material Resources")
+        resources = Self.resources(records.map(\.material), device: device, label: "PBR Merged \(kind) Material Resources")
         skinVertexBuffer = skinned ? geometry.skinBuffer : nil
         recordJointOffsetBuffer = skinned ? try buffer(jointOffsets, label: "PBR Merged Skinned Joint Offsets") : nil
         self.paletteSkins = paletteSkins
@@ -192,11 +191,19 @@ public final class PBRMergedGeometry {
         }
     }
 
-    /// Each record's textures with `overrides` applied, or nil when none applies (the prebuilt buffer is then used).
-    public func resources(overrides: PBRModel.MaterialOverrides) -> [PBRMaterialResources]? {
+    /// Each record's textures with `overrides` applied, or nil when none applies (``resources`` is then used).
+    public func resources(overrides: PBRModel.MaterialOverrides) -> ArgumentBuffer? {
         guard isOverridden(by: overrides) else {
             return nil
         }
-        return records.map { material(of: $0, overrides: overrides).resourceBuffer.contents().load(as: PBRMaterialResources.self) }
+        return Self.resources(records.map { material(of: $0, overrides: overrides) }, device: resources.device, label: "PBR Merged Overridden Material Resources")
+    }
+
+    private static func resources(_ materials: [PBRMaterial], device: MTLDevice, label: String) -> ArgumentBuffer {
+        let resources = ArgumentBuffer(device: device, count: max(materials.count, 1), label: label)
+        for (element, material) in materials.enumerated() {
+            resources.setMaterialResources(material.textureBindings, element: element)
+        }
+        return resources
     }
 }

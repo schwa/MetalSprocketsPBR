@@ -62,7 +62,7 @@ struct GoldenImageTests {
                 let roughness = Float(column) / Float(columns - 1)
                 let metallic: Float = row == 0 ? 0 : 1
                 let uniforms = PBRMaterialUniforms.defaults(baseColor: colors[row], metallic: metallic, roughness: roughness)
-                materials.append(try PBRMaterial(uniforms: uniforms, placeholder: placeholder, device: device))
+                materials.append(PBRMaterial(uniforms: uniforms, placeholder: placeholder, device: device))
                 matrices.append(simd_float4x4(translation: [Float(column) - Float(columns - 1) / 2, Float(rows - 1) / 2 - Float(row), 0]))
             }
         }

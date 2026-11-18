@@ -1,5 +1,6 @@
 import GeometryLite3D
 import Metal
+import MetalSprockets
 import MetalSprocketsPBRShaders
 import simd
 
@@ -15,7 +16,7 @@ struct PBRDrawPlan {
         /// Per-record uniforms when the pose animates materials or overrides apply; nil uses the prebuilt buffer.
         var materials: [PBRMaterialUniforms]?
         /// Per-record textures when overrides apply; nil uses the prebuilt buffer.
-        var resources: [PBRMaterialResources]?
+        var resources: ArgumentBuffer?
         /// Per-record double-sidedness of the material drawn.
         var doubleSided: [Bool]
         /// Which records to draw (frustum culling, and the back-face pre-pass's double-sided filter).
@@ -29,7 +30,7 @@ struct PBRDrawPlan {
         var geometry: PBRMergedGeometry
         var palette: [simd_float4x4]
         var materials: [PBRMaterialUniforms]?
-        var resources: [PBRMaterialResources]?
+        var resources: ArgumentBuffer?
         var doubleSided: [Bool]
         /// Which records to draw (nil: all); a record whose node the pose hides is skipped.
         var visible: [Bool]?

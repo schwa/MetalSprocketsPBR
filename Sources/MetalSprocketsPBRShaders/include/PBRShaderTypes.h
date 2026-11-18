@@ -183,6 +183,20 @@ struct PBRMaterialResources {
 #endif
 };
 
+#ifdef __METAL_VERSION__
+/// A frame's lighting textures and samplers in one argument buffer, the same for every draw of the frame.
+struct PBRFrameResources {
+    metal::texturecube<float> environmentIrradiance;
+    metal::texturecube<float> environmentSpecular;
+    metal::texture2d<float> brdfLookup;
+    metal::texture2d_array<float> transmissionScene;
+    metal::depth2d_array<float> shadowMap;
+    metal::texture2d<float> ambientOcclusion;
+    metal::sampler environmentSampler;
+    metal::sampler shadowSampler;
+};
+#endif
+
 typedef MS_ENUM(int, PBRLightType) {
     kPBRLightTypeDirectional = 0,
     kPBRLightTypePoint = 1,

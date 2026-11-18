@@ -137,12 +137,11 @@ public struct PBRModelBuilder {
         }
     }
 
-    /// Every long-lived allocation, each once: material textures and argument buffers, geometry, skin and morph
+    /// Every long-lived allocation, each once: material textures, geometry, skin and morph
     /// buffers, batch instance buffers and merged geometry.
     static func residencyAllocations(materials: [PBRMaterial], primitives: [PBRModel.Primitive], batches: [PBRModel.Batch], merged: [PBRMergedGeometry?]) -> [any MTLAllocation] {
         var allocations: [any MTLAllocation] = []
         for material in materials {
-            allocations.append(material.resourceBuffer)
             allocations += material.textureBindings.map(\.texture)
         }
         for primitive in primitives {

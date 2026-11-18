@@ -26,13 +26,13 @@ struct TestModels {
         quad = try geometry.build()[0]
     }
 
-    func material(color: SIMD4<Float> = [1, 0, 0, 1], blended: Bool = false, transmission: Float = 0, doubleSided: Bool = false) throws -> PBRMaterial {
+    func material(color: SIMD4<Float> = [1, 0, 0, 1], blended: Bool = false, transmission: Float = 0, doubleSided: Bool = false) -> PBRMaterial {
         var uniforms = PBRMaterialUniforms.defaults(baseColor: color, metallic: 0, roughness: 0.5)
         if blended {
             uniforms.alphaMode = .blend
         }
         uniforms.transmissionFactor = transmission
-        return try PBRMaterial(uniforms: uniforms, doubleSided: doubleSided, placeholder: placeholder, device: device)
+        return PBRMaterial(uniforms: uniforms, doubleSided: doubleSided, placeholder: placeholder, device: device)
     }
 
     /// One quad per entry, each at its own node translated to `position`.

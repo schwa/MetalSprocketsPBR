@@ -846,11 +846,13 @@ Needed before deciding:
 ## 38: Scene-wide lighting inputs are bound one slot at a time on every draw
 
 +++
-status: new
+status: closed
 priority: medium
 kind: enhancement
-labels: area:performance,effort:m
+labels: area:performance, effort:m
 created: 2026-11-18T18:18:13Z
+updated: 2026-11-18T18:54:23Z
+closed: 2026-11-18T18:54:23Z
 +++
 
 Material textures are already bindless: each PBRMaterial writes its textures and samplers into a PBRMaterialResources argument buffer once, and draws find them by index.
@@ -864,5 +866,7 @@ Effects:
 
 Depends on: MetalSprockets#579 (no persistent argument buffers).
 Related: SceneSprockets#542 (no shared lighting model).
+
+- `2026-11-18T18:54:23Z`: Fixed: PBRFrameResources argument buffer (6 lighting textures + 2 samplers) built once per frame via PBRFrameBindings.makeFrameResources() and bound with apply(to:frameResources:); fragment_main/fragment_merged bind 1 buffer instead of 8 slots. Old apply(to:) and PBR::shade overload kept for outside shaders. Also migrated PBRMaterialResources to MetalSprockets ArgumentBuffer (PBRMaterial.resources, PBRMergedGeometry.resources). Breaking: resourceBuffer removed, PBRMaterial inits no longer throw.
 
 ---
