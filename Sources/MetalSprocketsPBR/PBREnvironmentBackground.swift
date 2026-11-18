@@ -12,7 +12,7 @@ public struct PBREnvironmentBackground: Element {
     public var projectionMatrix: simd_float4x4
     public var intensity: Float
     public var exposure: Float
-    public var toneMapping: PBRToneMapping = .pbrNeutral
+    public var toneMapping: LightingToneMapping = .pbrNeutral
     /// As ``PBRLighting/environmentRotation``.
     public var rotation: Float = 0
     /// 0 is sharp; 1 samples the smallest mip of the source.

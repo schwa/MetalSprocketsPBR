@@ -186,7 +186,7 @@ namespace PBR {
         constant LightingLight *lights [[buffer(2)]],
         constant PBRMaterialResources &materialResources [[buffer(3)]],
         constant LightingShadowUniforms &shadow [[buffer(4)]],
-        constant PBRFrameResources &frameResources [[buffer(5)]]
+        constant LightingFrameResources &frameResources [[buffer(5)]]
     ) {
         return withWireframe(shade(in, frontFacing, material, frame, lights, materialResources, shadow, frameResources), barycentric, frame, material);
     }
@@ -202,7 +202,7 @@ namespace PBR {
         constant LightingLight *lights [[buffer(2)]],
         constant PBRMaterialResources *recordResources [[buffer(3)]],
         constant LightingShadowUniforms &shadow [[buffer(4)]],
-        constant PBRFrameResources &frameResources [[buffer(5)]]
+        constant LightingFrameResources &frameResources [[buffer(5)]]
     ) {
         constant PBRMaterialUniforms &material = recordMaterials[in.record];
         return withWireframe(shade(in, frontFacing, material, frame, lights, recordResources[in.record], shadow, frameResources), barycentric, frame, material);

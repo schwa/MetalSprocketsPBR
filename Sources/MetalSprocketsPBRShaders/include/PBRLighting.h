@@ -244,13 +244,7 @@ namespace PBR {
         sampler shadowSampler,
         texture2d<float> ambientOcclusion
     ) {
-        // Screen-space occlusion from the caller, one texel per render target pixel.
-        float screenOcclusion = 1.0;
-        if (frame.ambientOcclusionStrength > 0.0) {
-            const uint2 size = uint2(ambientOcclusion.get_width(), ambientOcclusion.get_height());
-            const float sample = ambientOcclusion.read(min(uint2(in.position.xy), size - 1)).r;
-            screenOcclusion = 1.0 + frame.ambientOcclusionStrength * (sample - 1.0);
-        }
+        const float screenOcclusion = Lighting::screenOcclusion(ambientOcclusion, in.position, frame.ambientOcclusionStrength);
         // The material's textures come from one argument buffer, so a draw binds them all at once.
         const texture2d<float> baseColorTexture = materialResources.textures[kPBRTextureBaseColor];
         const texture2d<float> metallicRoughnessTexture = materialResources.textures[kPBRTextureMetallicRoughness];
@@ -753,7 +747,7 @@ namespace PBR {
         constant LightingLight *lights,
         constant PBRMaterialResources &materialResources,
         constant LightingShadowUniforms &shadow,
-        constant PBRFrameResources &frameResources
+        constant LightingFrameResources &frameResources
     ) {
         return shade(in, frontFacing, material, frame, lights, materialResources, frameResources.environmentIrradiance, frameResources.environmentSpecular, frameResources.brdfLookup, frameResources.transmissionScene, frameResources.environmentSampler, shadow, frameResources.shadowMap, frameResources.shadowSampler, frameResources.ambientOcclusion);
     }

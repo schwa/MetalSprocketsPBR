@@ -343,7 +343,7 @@ struct RenderTests {
         texture.replace(region: MTLRegionMake2D(0, 0, width, height), mipmapLevel: 0, withBytes: [UInt8](repeating: 0, count: width * height), bytesPerRow: width)
         let light = LightingLight.directional(direction: [0, 0, -1], intensity: 0.5)
 
-        func center(_ environment: LightingEnvironment, occlusion: PBRAmbientOcclusion?) throws -> SIMD4<UInt8> {
+        func center(_ environment: LightingEnvironment, occlusion: LightingAmbientOcclusion?) throws -> SIMD4<UInt8> {
             var lighting = PBRLighting(lights: [light], environment: environment)
             lighting.ambientOcclusion = occlusion
             let scene = PBRScene(model: model, viewMatrix: view, projectionMatrix: projection, lighting: lighting, viewportSize: size)
@@ -352,8 +352,8 @@ struct RenderTests {
 
         let direct = try center(darkRoom, occlusion: nil)
         let lit = try center(room, occlusion: nil)
-        let occluded = try center(room, occlusion: PBRAmbientOcclusion(texture: texture))
-        let unchanged = try center(room, occlusion: PBRAmbientOcclusion(texture: texture, strength: 0))
+        let occluded = try center(room, occlusion: LightingAmbientOcclusion(texture: texture))
+        let unchanged = try center(room, occlusion: LightingAmbientOcclusion(texture: texture, strength: 0))
         #expect(Int(lit.x) > Int(direct.x) + 10, "The environment adds light: \(lit) vs \(direct)")
         #expect(abs(Int(occluded.x) - Int(direct.x)) <= 1, "Full occlusion leaves only direct light: \(occluded) vs \(direct)")
         #expect(abs(Int(unchanged.x) - Int(lit.x)) <= 1, "Strength 0 changes nothing: \(unchanged) vs \(lit)")

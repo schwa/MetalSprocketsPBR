@@ -58,8 +58,8 @@ struct ValueTests {
             #expect(view.id == view)
             #expect(view.shaderValue.rawValue == view.rawValue)
         }
-        #expect(Set(PBRToneMapping.allCases.map(\.name)).count == PBRToneMapping.allCases.count)
-        for toneMapping in PBRToneMapping.allCases {
+        #expect(Set(LightingToneMapping.allCases.map(\.name)).count == LightingToneMapping.allCases.count)
+        for toneMapping in LightingToneMapping.allCases {
             #expect(toneMapping.id == toneMapping)
             #expect(toneMapping.shaderValue.rawValue == toneMapping.rawValue)
         }

@@ -8,7 +8,7 @@ import UniformTypeIdentifiers
 
 public extension OffscreenRenderer {
     /// An offscreen renderer with an rgba16Float color target (linear, extended range), for HDR output. Use
-    /// ``PBRToneMapping/none`` to keep values above 1. The renderer uses reversed depth, so depth clears to 0.
+    /// ``LightingToneMapping/none`` to keep values above 1. The renderer uses reversed depth, so depth clears to 0.
     static func hdr(size: CGSize, device: MTLDevice? = nil) throws -> OffscreenRenderer {
         let device = device ?? _MTLCreateSystemDefaultDevice()
         let targetSize = PBRTargetSize(size)

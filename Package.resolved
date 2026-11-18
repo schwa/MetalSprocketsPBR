@@ -1,5 +1,5 @@
 {
-  "originHash" : "fb0f87a368bfac5dc2544a80f80a4fa57e7a80782649ba0bed514cd6a5cfabe0",
+  "originHash" : "91ff99eca509224e688b4b7c27bed83ac92d304b23620e8963c725d05a038c18",
   "pins" : [
     {
       "identity" : "geometrylite2d",
@@ -51,8 +51,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/schwa/MetalSprocketsLighting",
       "state" : {
-        "revision" : "d35c123f4316576d917657ca71abd59aac61860b",
-        "version" : "0.0.3"
+        "revision" : "1d541786fc9be6fbe6fc78942f249ec663efc4ae",
+        "version" : "0.0.4"
       }
     },
     {

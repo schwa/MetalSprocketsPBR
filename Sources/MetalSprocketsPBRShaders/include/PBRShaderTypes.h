@@ -184,32 +184,6 @@ struct PBRMaterialResources {
 #endif
 };
 
-#ifdef __METAL_VERSION__
-/// A frame's lighting textures and samplers in one argument buffer, the same for every draw of the frame.
-struct PBRFrameResources {
-    metal::texturecube<float> environmentIrradiance;
-    metal::texturecube<float> environmentSpecular;
-    metal::texture2d<float> brdfLookup;
-    metal::texture2d_array<float> transmissionScene;
-    metal::depth2d_array<float> shadowMap;
-    metal::texture2d<float> ambientOcclusion;
-    metal::sampler environmentSampler;
-    metal::sampler shadowSampler;
-};
-#endif
-
-
-/// How linear radiance (after exposure) becomes display values. Mirrored by the Swift PBRToneMapping; 0 is the default.
-typedef MS_ENUM(int, PBRShaderToneMapping) {
-    kPBRToneMappingPBRNeutral = 0, // Khronos PBR Neutral.
-    kPBRToneMappingLinear,         // Clamp to 0...1 (three.js LinearToneMapping).
-    kPBRToneMappingACESFilmic,     // three.js ACESFilmicToneMapping.
-    kPBRToneMappingAgX,            // three.js AgXToneMapping.
-    kPBRToneMappingReinhard,       // three.js ReinhardToneMapping.
-    kPBRToneMappingNone,           // Unbounded linear output for HDR targets (three.js NoToneMapping).
-    kPBRToneMappingCount
-};
-
 /// What the PBR shader outputs: the lit color, or one of its inputs for debugging. Mirrored by the Swift PBRDebugView.
 typedef MS_ENUM(int, PBRShaderDebugView) {
     kPBRDebugViewLit = 0,
@@ -255,7 +229,7 @@ struct PBRFrameUniforms {
     int linearOutput;
     PBRShaderDebugView debugView;
     int showsWireframe; // Draw triangle edges over the output.
-    PBRShaderToneMapping toneMapping;
+    LightingShaderToneMapping toneMapping;
     // World direction to environment direction (the inverse of the environment's rotation). Zero means identity.
     simd_float3x3 environmentRotation;
     // Scales the screen-space occlusion texture's effect on indirect light. Zero disables it.
@@ -269,7 +243,7 @@ struct PBRBackgroundUniforms {
     float intensity;
     float exposure;
     int linearOutput; // Skip exposure and tone mapping, for the transmission pre-pass.
-    PBRShaderToneMapping toneMapping;
+    LightingShaderToneMapping toneMapping;
     simd_float3x3 environmentRotation; // As in PBRFrameUniforms.
 };
 typedef struct PBRBackgroundUniforms PBRBackgroundUniforms;

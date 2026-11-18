@@ -49,38 +49,22 @@ public struct PBRShadows: @unchecked Sendable {
     }
 }
 
-// @unchecked: MTLTexture is not Sendable. The renderer only reads it, and Metal allows that from any thread.
-
-/// Screen-space ambient occlusion computed by the caller, e.g. SSAO. It darkens only indirect (image-based) light,
-/// on top of the material's occlusion texture. Ignored in stereo and by the transmission pre-pass.
-public struct PBRAmbientOcclusion: @unchecked Sendable {
-    /// A 2D texture with one texel per render target pixel; the red channel is the occlusion (1 is unoccluded).
-    public var texture: MTLTexture
-    /// 0 leaves indirect light unchanged, 1 applies the full occlusion.
-    public var strength: Float
-
-    public init(texture: MTLTexture, strength: Float = 1) {
-        self.texture = texture
-        self.strength = strength
-    }
-}
-
 /// Lights, image-based lighting, exposure and tone mapping for ``PBRRenderer``. There is always an environment.
 public struct PBRLighting: Sendable {
     public var lights: [LightingLight]
     public var environment: LightingEnvironment
     public var environmentIntensity: Float
     public var exposure: Float
-    public var toneMapping: PBRToneMapping
+    public var toneMapping: LightingToneMapping
     /// Turns the environment about +Y, in radians (positive is counter-clockwise seen from above), for lighting and
     /// the background alike.
     public var environmentRotation: Float = 0
     /// Nil: no light is shadowed.
     public var shadows: PBRShadows?
     /// Nil: no screen-space occlusion.
-    public var ambientOcclusion: PBRAmbientOcclusion?
+    public var ambientOcclusion: LightingAmbientOcclusion?
 
-    public init(lights: [LightingLight] = [], environment: LightingEnvironment = .studio, environmentIntensity: Float = 1, exposure: Float = 1, toneMapping: PBRToneMapping = .pbrNeutral) {
+    public init(lights: [LightingLight] = [], environment: LightingEnvironment = .studio, environmentIntensity: Float = 1, exposure: Float = 1, toneMapping: LightingToneMapping = .pbrNeutral) {
         self.lights = lights
         self.environment = environment
         self.environmentIntensity = environmentIntensity

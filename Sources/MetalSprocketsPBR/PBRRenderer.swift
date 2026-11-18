@@ -450,7 +450,7 @@ public struct PBRFrameBindings {
         self.ambientOcclusion = ambientOcclusion?.texture ?? shaders.placeholderOcclusion
     }
 
-    /// The textures and samplers as a `PBRFrameResources` argument buffer, for ``apply(to:frameResources:)``. Make it once
+    /// The textures and samplers as a `LightingFrameResources` argument buffer, for ``apply(to:frameResources:)``. Make it once
     /// per frame and share it between pipelines.
     public func makeFrameResources() -> ArgumentBuffer {
         let resources = ArgumentBuffer(device: irradiance.device, label: "PBR Frame Resources")
@@ -466,7 +466,7 @@ public struct PBRFrameBindings {
     }
 
     /// Binds `frame`, `lights`, `shadow` and `frameResources` (from ``makeFrameResources()``), as the `PBR::shade`
-    /// overload that takes a `PBRFrameResources` reads them.
+    /// overload that takes a `LightingFrameResources` reads them.
     public func apply(to content: some Element, frameResources: ArgumentBuffer) -> some Element {
         content
             .parameter("frame", value: frame)
